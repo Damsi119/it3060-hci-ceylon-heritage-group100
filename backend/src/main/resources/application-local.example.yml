@@ -1,0 +1,20 @@
+spring:
+  datasource:
+    password: your_database_password
+
+  mail:
+    username: your_smtp_username
+    password: your_smtp_app_password
+
+google:
+  oauth:
+    client-id: your_google_client_id
+
+jwt:
+  secret: base64_encoded_256_bit_secret
+
+admin:
+  username: admin
+  email: admin@example.com
+  phone: "0700000000"
+  password: change_this_admin_password
