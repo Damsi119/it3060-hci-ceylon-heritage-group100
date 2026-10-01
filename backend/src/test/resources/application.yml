@@ -22,7 +22,7 @@ google:
     client-id:
 
 jwt:
-  secret: Nfmwh59tHXJ2GimBPtDAbBPINwgKe8zg+gYcx4x+kg0=
+  secret: dGVzdC1qd3Qtc2VjcmV0LWtleS1mb3ItbG9jYWwtdGVzdHMtMTIzNA==
   access-token-expiration: 900000
   refresh-token-expiration: 604800000
 
