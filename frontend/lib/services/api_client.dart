@@ -105,6 +105,9 @@ class ApiClient {
       throw ApiException(
         'Could not connect to ${ApiConfig.baseUrl}. Check that Spring Boot is running and that this address is reachable. (${error.message})',
       );
+    } catch (error) {
+      if (error is ApiException) rethrow;
+      throw ApiException('Request to ${_uri(path)} failed: $error');
     }
 
     if (response.statusCode == 401 && authenticated && retryAfterRefresh) {
