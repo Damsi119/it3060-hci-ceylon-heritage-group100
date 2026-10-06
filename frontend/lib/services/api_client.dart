@@ -140,6 +140,16 @@ class ApiClient {
       return data;
     }
 
+    if (response.statusCode == 401) {
+      throw const ApiException(
+        'Your session expired. Please log in again.',
+        401,
+      );
+    }
+    if (response.statusCode == 403) {
+      throw const ApiException('Please log in to perform this action.', 403);
+    }
+
     String message = 'Something went wrong';
     if (data is Map<String, dynamic> && data['message'] is String) {
       message = data['message'] as String;

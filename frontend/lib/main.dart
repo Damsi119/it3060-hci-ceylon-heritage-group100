@@ -10,6 +10,7 @@ import 'screens/my_favourites.dart';
 import 'screens/nearby_places.dart';
 import 'screens/profile/profile_screen.dart';
 import 'screens/home/home_router.dart';
+import 'services/api_client.dart';
 import 'services/token_store.dart';
 import 'services/user_service.dart';
 import 'widgets/heritage_logo.dart';
@@ -110,6 +111,23 @@ class _ProfileRouteState extends State<_ProfileRoute> {
                   const SizedBox(height: 8),
                   Text('${snapshot.error}', textAlign: TextAlign.center),
                   const SizedBox(height: 18),
+                  if (snapshot.error is ApiException &&
+                      [
+                        401,
+                        403,
+                      ].contains((snapshot.error as ApiException).statusCode))
+                    FilledButton(
+                      onPressed: () {
+                        TokenStore.clear();
+                        Navigator.of(context).pushAndRemoveUntil(
+                          MaterialPageRoute<void>(
+                            builder: (_) => const LoginScreen(),
+                          ),
+                          (_) => false,
+                        );
+                      },
+                      child: const Text('Sign in again'),
+                    ),
                   FilledButton.icon(
                     onPressed: _retry,
                     icon: const Icon(Icons.refresh),
