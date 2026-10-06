@@ -11,6 +11,7 @@ import '../../widgets/heritage_message.dart';
 import '../../widgets/heritage_section_title.dart';
 import '../../widgets/heritage_text_field.dart';
 import 'email_verification_screen.dart';
+import 'login_screen.dart';
 
 class SignupScreen extends StatefulWidget {
   const SignupScreen({super.key});
@@ -64,7 +65,7 @@ class _SignupScreenState extends State<SignupScreen> {
 
     setState(() => _loading = true);
     try {
-      await AuthService.instance.register(
+      final verificationRequired = await AuthService.instance.register(
         username: _username.text.trim(),
         email: _email.text.trim(),
         phone: _phone.text.trim(),
@@ -78,9 +79,14 @@ class _SignupScreenState extends State<SignupScreen> {
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(
-          builder: (_) => EmailVerificationScreen(email: _email.text.trim()),
+          builder: (_) => verificationRequired
+              ? EmailVerificationScreen(email: _email.text.trim())
+              : const LoginScreen(),
         ),
       );
+      if (!verificationRequired && mounted) {
+        showHeritageMessage(context, 'Account created. You can now sign in.');
+      }
     } on ApiException catch (e) {
       if (mounted) showHeritageMessage(context, e.message, error: true);
     } finally {

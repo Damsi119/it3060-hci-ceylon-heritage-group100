@@ -12,6 +12,7 @@ import com.ceylonheritage.backend.service.AuthService;
 import com.ceylonheritage.backend.service.EmailService;
 import com.ceylonheritage.backend.utils.OtpUtil;
 import com.ceylonheritage.backend.utils.TokenHashUtil;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -27,6 +28,9 @@ public class AuthServiceImpl implements AuthService {
     private final EmailService emailService;
     private final JwtService jwtService;
     private final GoogleTokenService googleTokenService;
+
+    @Value("${app.auth.email-verification-required:true}")
+    private boolean emailVerificationRequired;
 
     public AuthServiceImpl(
             UserRepository userRepository,
@@ -108,27 +112,27 @@ public class AuthServiceImpl implements AuthService {
                 .address(request.address())
                 .role(Role.TOURIST)
                 .provider(AuthProvider.LOCAL)
-                .emailVerified(false)
+                .emailVerified(!emailVerificationRequired)
                 .enabled(true)
                 .deleted(false)
-                .verifyCode(otp)
-                .verifyCodeExpiry(
-                        now.plusMinutes(5)
-                )
-                .lastOtpSentAt(now)
+                .verifyCode(emailVerificationRequired ? otp : null)
+                .verifyCodeExpiry(emailVerificationRequired ? now.plusMinutes(5) : null)
+                .lastOtpSentAt(emailVerificationRequired ? now : null)
                 .otpResendCount(0)
                 .build();
 
         userRepository.save(user);
 
-        emailService.sendVerificationCode(
-                user.getEmail(),
-                otp
-        );
+        if (emailVerificationRequired) {
+            emailService.sendVerificationCode(user.getEmail(), otp);
+        }
 
         return new UserDto.MessageResponse(
                 true,
-                "Registration successful. Check your email for the verification code."
+                emailVerificationRequired
+                        ? "Registration successful. Check your email for the verification code."
+                        : "Registration successful. You can now sign in.",
+                emailVerificationRequired
         );
     }
 

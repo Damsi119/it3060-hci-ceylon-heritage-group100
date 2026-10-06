@@ -56,3 +56,7 @@ jwt:
 cookie:
   secure: false
   same-site: Lax
+
+app:
+  auth:
+    email-verification-required: true

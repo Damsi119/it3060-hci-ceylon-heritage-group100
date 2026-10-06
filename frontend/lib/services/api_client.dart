@@ -72,33 +72,39 @@ class ApiClient {
     final encodedBody = body == null ? null : jsonEncode(body);
     late http.Response response;
 
-    switch (method) {
-      case 'GET':
-        response = await http.get(_uri(path), headers: headers);
-        break;
-      case 'POST':
-        response = await http.post(
-          _uri(path),
-          headers: headers,
-          body: encodedBody,
-        );
-        break;
-      case 'PUT':
-        response = await http.put(
-          _uri(path),
-          headers: headers,
-          body: encodedBody,
-        );
-        break;
-      case 'DELETE':
-        response = await http.delete(
-          _uri(path),
-          headers: headers,
-          body: encodedBody,
-        );
-        break;
-      default:
-        throw const ApiException('Unsupported request method');
+    try {
+      switch (method) {
+        case 'GET':
+          response = await http.get(_uri(path), headers: headers);
+          break;
+        case 'POST':
+          response = await http.post(
+            _uri(path),
+            headers: headers,
+            body: encodedBody,
+          );
+          break;
+        case 'PUT':
+          response = await http.put(
+            _uri(path),
+            headers: headers,
+            body: encodedBody,
+          );
+          break;
+        case 'DELETE':
+          response = await http.delete(
+            _uri(path),
+            headers: headers,
+            body: encodedBody,
+          );
+          break;
+        default:
+          throw const ApiException('Unsupported request method');
+      }
+    } on http.ClientException catch (error) {
+      throw ApiException(
+        'Could not connect to ${ApiConfig.baseUrl}. Check that Spring Boot is running and that this address is reachable. (${error.message})',
+      );
     }
 
     if (response.statusCode == 401 && authenticated && retryAfterRefresh) {

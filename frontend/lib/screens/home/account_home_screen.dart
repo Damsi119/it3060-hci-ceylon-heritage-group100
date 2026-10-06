@@ -12,6 +12,7 @@ import '../auth/change_password_screen.dart';
 import '../auth/login_screen.dart';
 import '../notifications/notifications_screen.dart';
 import '../profile/profile_screen.dart';
+import '../nearby_places.dart';
 
 class AccountHomeScreen extends StatelessWidget {
   const AccountHomeScreen({super.key, required this.user});
@@ -111,6 +112,15 @@ class AccountHomeScreen extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 14),
+          _ActionTile(
+            icon: Icons.explore_outlined,
+            title: 'Explore Nearby Places',
+            subtitle: 'Browse heritage places, hotels, restaurants, and shops.',
+            onTap: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const NearbyPlacesScreen()),
+            ),
+          ),
           _ActionTile(
             icon: Icons.person_outline_rounded,
             title: 'Profile',

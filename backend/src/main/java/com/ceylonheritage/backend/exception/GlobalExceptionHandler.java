@@ -10,6 +10,7 @@ import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
+import org.springframework.web.server.ResponseStatusException;
 
 @RestControllerAdvice
 public class GlobalExceptionHandler {
@@ -102,6 +103,15 @@ public class GlobalExceptionHandler {
                         false,
                         "Invalid request parameter"
                 ));
+    }
+
+    @ExceptionHandler(ResponseStatusException.class)
+    public ResponseEntity<UserDto.MessageResponse> handleResponseStatusException(
+            ResponseStatusException exception
+    ) {
+        String message = exception.getReason() == null ? "Request failed" : exception.getReason();
+        return ResponseEntity.status(exception.getStatusCode())
+                .body(new UserDto.MessageResponse(false, message));
     }
 
 

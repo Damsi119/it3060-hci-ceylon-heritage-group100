@@ -8,7 +8,7 @@ class AuthService {
   static final AuthService instance = AuthService._();
   final ApiClient _api = ApiClient.instance;
 
-  Future<String> register({
+  Future<bool> register({
     required String username,
     required String email,
     required String phone,
@@ -36,7 +36,7 @@ class AuthService {
             )
             as Map<String, dynamic>;
 
-    return data['message'] as String? ?? 'Registration successful';
+    return data['verificationRequired'] as bool? ?? true;
   }
 
   Future<String> verifyEmail(String email, String code) async {
