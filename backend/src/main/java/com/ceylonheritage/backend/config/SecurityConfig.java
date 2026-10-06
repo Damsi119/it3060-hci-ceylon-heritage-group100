@@ -1,7 +1,6 @@
 package com.ceylonheritage.backend.config;
 
 import com.ceylonheritage.backend.security.JwtAuthFilter;
-
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
@@ -36,7 +35,6 @@ public class SecurityConfig {
         http
                 .csrf(csrf -> csrf.disable())
 
-                // No server-side session
                 .sessionManagement(session ->
                         session.sessionCreationPolicy(
                                 SessionCreationPolicy.STATELESS
@@ -45,40 +43,103 @@ public class SecurityConfig {
 
                 .authorizeHttpRequests(auth -> auth
 
-                        // Auth endpoints are public
-                        .requestMatchers(
-                                "/api/auth/**"
-                        )
+                        // Public authentication endpoints.
+                        .requestMatchers("/api/auth/**")
                         .permitAll()
 
-                        // Guide request can be submitted without login
+                        // Submit a guide request without login.
                         .requestMatchers(
                                 HttpMethod.POST,
                                 "/api/guide-requests"
                         )
                         .permitAll()
 
-                        // Approved guides can be viewed by anyone
+                        // View approved guides without login.
                         .requestMatchers(
                                 HttpMethod.GET,
                                 "/api/guides/approved"
                         )
                         .permitAll()
 
-                        // Other requests need authentication
+                        // My Posts requires login.
+                        // Keep this before public post rules.
+                        .requestMatchers(
+                                HttpMethod.GET,
+                                "/api/posts/my"
+                        )
+                        .authenticated()
+
+                        // Visitors can browse historical places.
+                        .requestMatchers(
+                                HttpMethod.GET,
+                                "/api/places",
+                                "/api/places/**"
+                        )
+                        .permitAll()
+
+                        // Visitors can view posts, like counts and comments.
+                        .requestMatchers(
+                                HttpMethod.GET,
+                                "/api/posts",
+                                "/api/posts/recent",
+                                "/api/posts/{id}",
+                                "/api/posts/{postId}/likes",
+                                "/api/posts/{postId}/comments"
+                        )
+                        .permitAll()
+
+                        // Visitors can view uploaded post photos.
+                        .requestMatchers(
+                                HttpMethod.GET,
+                                "/uploads/community-posts/**"
+                        )
+                        .permitAll()
+
+                        // Creating a post requires login.
+                        .requestMatchers(
+                                HttpMethod.POST,
+                                "/api/posts"
+                        )
+                        .authenticated()
+
+                        // Liking a post requires login.
+                        .requestMatchers(
+                                HttpMethod.POST,
+                                "/api/posts/{postId}/like"
+                        )
+                        .authenticated()
+
+                        // Removing a like requires login.
+                        .requestMatchers(
+                                HttpMethod.DELETE,
+                                "/api/posts/{postId}/like"
+                        )
+                        .authenticated()
+
+                        // Creating a comment requires login.
+                        .requestMatchers(
+                                HttpMethod.POST,
+                                "/api/posts/{postId}/comments"
+                        )
+                        .authenticated()
+
+                        // Deleting a comment requires login.
+                        // The service also checks comment ownership.
+                        .requestMatchers(
+                                HttpMethod.DELETE,
+                                "/api/posts/{postId}/comments/{commentId}"
+                        )
+                        .authenticated()
+
+                        // All other requests require login.
                         .anyRequest()
                         .authenticated()
                 )
 
-                .formLogin(form ->
-                        form.disable()
-                )
+                .formLogin(form -> form.disable())
 
-                .httpBasic(basic ->
-                        basic.disable()
-                )
+                .httpBasic(basic -> basic.disable())
 
-                // Check JWT before authentication
                 .addFilterBefore(
                         jwtAuthFilter,
                         UsernamePasswordAuthenticationFilter.class
