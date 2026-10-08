@@ -6,6 +6,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../core/constants/api_config.dart';
 import '../../services/api_client.dart';
 import 'create_tour_screen.dart';
+import '../navigation/member4_navigation_screen.dart';
 
 const _detailsPrimary = Color(0xFF9A4F2D);
 const _detailsBackground = Color(0xFFF8F3ED);
@@ -263,7 +264,9 @@ class _TourDetailsScreenState extends State<TourDetailsScreen> {
     final callback = widget.onStartTour;
 
     if (callback == null) {
-      _message('The Active Tour screen has not been connected yet.');
+      await Navigator.of(context).push<void>(
+        MaterialPageRoute(builder: (_) => Member4NavigationScreen(initialTour: _tour)),
+      );
       return;
     }
 

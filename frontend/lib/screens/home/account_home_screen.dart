@@ -12,6 +12,7 @@ import '../auth/change_password_screen.dart';
 import '../auth/login_screen.dart';
 import '../notifications/notifications_screen.dart';
 import '../profile/profile_screen.dart';
+import '../navigation/member4_navigation_screen.dart';
 
 class AccountHomeScreen extends StatelessWidget {
   const AccountHomeScreen({super.key, required this.user});
@@ -111,6 +112,15 @@ class AccountHomeScreen extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 14),
+          _ActionTile(
+            icon: Icons.route_outlined,
+            title: 'Heritage Map & Navigation',
+            subtitle: 'Start a route, track checkpoints and save your journey.',
+            onTap: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => Member4NavigationScreen(storageScope: user.id.toString())),
+            ),
+          ),
           _ActionTile(
             icon: Icons.person_outline_rounded,
             title: 'Profile',
