@@ -74,7 +74,7 @@ The following sections describe the project’s intended functionality. Implemen
 
 **Group Number: Y3S2_WE_100**
 
-| Student ID | Name | Milestone 02 Responsibilities |
+| Student ID | Name | Mobile App Components |
 | --- | --- | --- |
 | IT23733008 | W M T Sewmini | Home and Historical Place Discovery, Search and Place Details, Community Feed and Post Creation, and Multi-Destination Historical Tour Planning |
 | IT23716964 | Nimalarathna W.G.D.N. | User Authentication and Account Recovery, Profile Management, Notifications/Alerts, and AI-Based Heritage Travel Planning |
