@@ -17,6 +17,11 @@ public interface GuideService {
 
     List<GuideDto.GuideProfileResponse> getApprovedGuides();
 
+    GuideDto.GuideProfileResponse getGuideRequestStatus(
+            String email,
+            String phone
+    );
+
     GuideDto.GuideProfileResponse reviewGuide(
             String adminUsername,
             Long guideProfileId,

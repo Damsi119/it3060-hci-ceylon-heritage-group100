@@ -15,9 +15,14 @@ import '../../widgets/otp_code_input.dart';
 import 'login_screen.dart';
 
 class EmailVerificationScreen extends StatefulWidget {
-  const EmailVerificationScreen({super.key, required this.email});
+  const EmailVerificationScreen({
+    super.key,
+    required this.email,
+    this.initialMessage,
+  });
 
   final String email;
+  final String? initialMessage;
 
   @override
   State<EmailVerificationScreen> createState() =>
@@ -35,6 +40,14 @@ class _EmailVerificationScreenState extends State<EmailVerificationScreen> {
   void initState() {
     super.initState();
     _startTimer();
+
+    final initialMessage = widget.initialMessage;
+    if (initialMessage != null && initialMessage.trim().isNotEmpty) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        showHeritageMessage(context, initialMessage);
+      });
+    }
   }
 
   @override

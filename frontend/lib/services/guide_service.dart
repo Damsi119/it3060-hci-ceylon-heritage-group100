@@ -32,6 +32,21 @@ class GuideService {
     return GuideApplication.fromJson(data);
   }
 
+  Future<GuideApplication> checkStatus({
+    required String email,
+    required String phone,
+  }) async {
+    final query = Uri(queryParameters: {'email': email, 'phone': phone}).query;
+
+    final data =
+        await _api.get(
+              '/api/guide-requests/status?$query',
+              authenticated: false,
+            )
+            as Map<String, dynamic>;
+    return GuideApplication.fromJson(data);
+  }
+
   Future<List<GuideApplication>> getByStatus(String status) async {
     final data =
         await _api.get('/api/admin/guides?status=$status') as List<dynamic>;

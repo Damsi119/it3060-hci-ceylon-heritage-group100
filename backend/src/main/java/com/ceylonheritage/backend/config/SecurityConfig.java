@@ -2,9 +2,11 @@ package com.ceylonheritage.backend.config;
 
 import com.ceylonheritage.backend.security.JwtAuthFilter;
 import java.util.List;
+import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
+import org.springframework.http.MediaType;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
@@ -45,6 +47,17 @@ public class SecurityConfig {
 
                 .csrf(csrf -> csrf.disable())
 
+                .exceptionHandling(exception -> exception
+                        .authenticationEntryPoint((request, response, authException) -> {
+                            response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+                            response.setContentType(MediaType.APPLICATION_JSON_VALUE);
+                            response.setCharacterEncoding("UTF-8");
+                            response.getWriter().write(
+                                    "{\"success\":false,\"message\":\"Authentication required\"}"
+                            );
+                        })
+                )
+
                 .sessionManagement(session ->
                         session.sessionCreationPolicy(
                                 SessionCreationPolicy.STATELESS
@@ -61,6 +74,13 @@ public class SecurityConfig {
                         .requestMatchers(
                                 HttpMethod.POST,
                                 "/api/guide-requests"
+                        )
+                        .permitAll()
+
+                        // Check a submitted guide request status without login.
+                        .requestMatchers(
+                                HttpMethod.GET,
+                                "/api/guide-requests/status"
                         )
                         .permitAll()
 
@@ -84,6 +104,13 @@ public class SecurityConfig {
                                 HttpMethod.GET,
                                 "/api/places",
                                 "/api/places/**"
+                        )
+                        .permitAll()
+
+                        // Visitors can generate a sample tour plan.
+                        .requestMatchers(
+                                HttpMethod.POST,
+                                "/api/tour-planner/generate"
                         )
                         .permitAll()
 
@@ -190,6 +217,32 @@ public class SecurityConfig {
         source.registerCorsConfiguration(
                 "/api/places/**",
                 configuration
+        );
+
+        CorsConfiguration plannerConfiguration =
+                new CorsConfiguration();
+
+        plannerConfiguration.setAllowedOrigins(
+                List.of("http://localhost:3000")
+        );
+
+        plannerConfiguration.setAllowedMethods(
+                List.of("POST", "OPTIONS")
+        );
+
+        plannerConfiguration.setAllowedHeaders(
+                List.of(
+                        "Content-Type",
+                        "Accept",
+                        "Authorization"
+                )
+        );
+
+        plannerConfiguration.setMaxAge(3600L);
+
+        source.registerCorsConfiguration(
+                "/api/tour-planner/**",
+                plannerConfiguration
         );
 
         // Community API: browsing, publishing, editing,

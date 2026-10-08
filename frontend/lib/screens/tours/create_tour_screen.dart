@@ -20,10 +20,9 @@ ThemeData _tourTheme(BuildContext context) {
   final theme = Theme.of(context);
 
   return theme.copyWith(
-    textTheme: GoogleFonts.interTextTheme(theme.textTheme).apply(
-      bodyColor: _tourHeading,
-      displayColor: _tourHeading,
-    ),
+    textTheme: GoogleFonts.interTextTheme(
+      theme.textTheme,
+    ).apply(bodyColor: _tourHeading, displayColor: _tourHeading),
     scaffoldBackgroundColor: _tourBackground,
   );
 }
@@ -172,9 +171,7 @@ class _CreateTourScreenState extends State<CreateTourScreen> {
 
       for (final json in placesResponse) {
         if (json is Map) {
-          final place = _TourPlace.fromJson(
-            Map<String, dynamic>.from(json),
-          );
+          final place = _TourPlace.fromJson(Map<String, dynamic>.from(json));
 
           if (place.id > 0 &&
               !loadedPlaces.any((item) => item.id == place.id)) {
@@ -184,7 +181,7 @@ class _CreateTourScreenState extends State<CreateTourScreen> {
       }
 
       loadedPlaces.sort(
-            (a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()),
+        (a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()),
       );
 
       Map<String, dynamic>? loadedTour;
@@ -228,7 +225,7 @@ class _CreateTourScreenState extends State<CreateTourScreen> {
           }
 
           stops.sort(
-                (a, b) => (_integer(a['stopOrder']) ?? 0).compareTo(
+            (a, b) => (_integer(a['stopOrder']) ?? 0).compareTo(
               _integer(b['stopOrder']) ?? 0,
             ),
           );
@@ -238,8 +235,7 @@ class _CreateTourScreenState extends State<CreateTourScreen> {
           for (final stop in stops) {
             final place = _TourPlace.fromStop(stop);
 
-            if (place.id > 0 &&
-                !_selected.any((item) => item.id == place.id)) {
+            if (place.id > 0 && !_selected.any((item) => item.id == place.id)) {
               _selected.add(place);
             }
           }
@@ -374,25 +370,19 @@ class _CreateTourScreenState extends State<CreateTourScreen> {
           ),
           content: const Text(
             'You have unsaved changes. Save your tour or discard '
-                'the changes to continue.',
+            'the changes to continue.',
           ),
           actions: [
             TextButton(
               onPressed: () {
-                Navigator.of(dialogContext).pop(
-                  _TourLeaveAction.discard,
-                );
+                Navigator.of(dialogContext).pop(_TourLeaveAction.discard);
               },
-              style: TextButton.styleFrom(
-                foregroundColor: _tourPrimary,
-              ),
+              style: TextButton.styleFrom(foregroundColor: _tourPrimary),
               child: const Text('Discard'),
             ),
             FilledButton(
               onPressed: () {
-                Navigator.of(dialogContext).pop(
-                  _TourLeaveAction.save,
-                );
+                Navigator.of(dialogContext).pop(_TourLeaveAction.save);
               },
               style: FilledButton.styleFrom(
                 backgroundColor: _tourPrimary,
@@ -412,11 +402,8 @@ class _CreateTourScreenState extends State<CreateTourScreen> {
         return true;
 
       case _TourLeaveAction.save:
-      // Navigate only to the destination the user selected.
-        return await _save(
-          notifyOnSaved: false,
-          navigateToSignIn: false,
-        );
+        // Navigate only to the destination the user selected.
+        return await _save(notifyOnSaved: false, navigateToSignIn: false);
 
       case null:
         return false;
@@ -529,7 +516,7 @@ class _CreateTourScreenState extends State<CreateTourScreen> {
 
     setState(() => _saving = true);
 
-    Map<String, dynamic>? savedTour;
+    late Map<String, dynamic> savedTour;
 
     try {
       final token = await TokenStore.getAccessToken();
@@ -565,10 +552,7 @@ class _CreateTourScreenState extends State<CreateTourScreen> {
           body: body,
         );
       } else {
-        response = await ApiClient.instance.post(
-          '/api/tours',
-          body: body,
-        );
+        response = await ApiClient.instance.post('/api/tours', body: body);
       }
 
       if (response is! Map) {
@@ -604,7 +588,7 @@ class _CreateTourScreenState extends State<CreateTourScreen> {
       }
     }
 
-    if (!mounted || savedTour == null) return false;
+    if (!mounted) return false;
 
     if (notifyOnSaved) {
       widget.onSaved?.call(savedTour);
@@ -688,15 +672,15 @@ class _CreateTourScreenState extends State<CreateTourScreen> {
                         Expanded(
                           child: rating != null && rating > 0
                               ? Text(
-                            '★ ${rating.toStringAsFixed(1)}'
-                                '${place.reviewCount > 0 ? ' (${place.reviewCount})' : ''}',
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
-                              fontSize: 10,
-                              color: _tourPrimary,
-                            ),
-                          )
+                                  '★ ${rating.toStringAsFixed(1)}'
+                                  '${place.reviewCount > 0 ? ' (${place.reviewCount})' : ''}',
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(
+                                    fontSize: 10,
+                                    color: _tourPrimary,
+                                  ),
+                                )
                               : const SizedBox.shrink(),
                         ),
                         IconButton(
@@ -747,11 +731,7 @@ class _CreateTourScreenState extends State<CreateTourScreen> {
               index: index,
               child: const Padding(
                 padding: EdgeInsets.symmetric(horizontal: 3),
-                child: Icon(
-                  Icons.drag_indicator,
-                  size: 20,
-                  color: _tourMuted,
-                ),
+                child: Icon(Icons.drag_indicator, size: 20, color: _tourMuted),
               ),
             ),
           CircleAvatar(
@@ -816,10 +796,7 @@ class _CreateTourScreenState extends State<CreateTourScreen> {
                 ? null
                 : () => _remove(place),
             iconSize: 20,
-            icon: const Icon(
-              Icons.delete_outline,
-              color: Colors.redAccent,
-            ),
+            icon: const Icon(Icons.delete_outline, color: Colors.redAccent),
           ),
         ],
       ),
@@ -839,9 +816,7 @@ class _CreateTourScreenState extends State<CreateTourScreen> {
             const SizedBox(height: 12),
             FilledButton(
               onPressed: _load,
-              style: FilledButton.styleFrom(
-                backgroundColor: _tourPrimary,
-              ),
+              style: FilledButton.styleFrom(backgroundColor: _tourPrimary),
               child: const Text('Retry'),
             ),
           ],
@@ -877,10 +852,7 @@ class _CreateTourScreenState extends State<CreateTourScreen> {
             decoration: InputDecoration(
               labelText: 'Tour Name',
               hintText: 'e.g. Anuradhapura Heritage Tour',
-              prefixIcon: const Icon(
-                Icons.map_outlined,
-                color: _tourPrimary,
-              ),
+              prefixIcon: const Icon(Icons.map_outlined, color: _tourPrimary),
               filled: true,
               fillColor: Colors.white,
               border: OutlineInputBorder(
@@ -888,10 +860,7 @@ class _CreateTourScreenState extends State<CreateTourScreen> {
               ),
               focusedBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(10),
-                borderSide: const BorderSide(
-                  color: _tourPrimary,
-                  width: 1.5,
-                ),
+                borderSide: const BorderSide(color: _tourPrimary, width: 1.5),
               ),
             ),
             onChanged: (_) => setState(() => _dirty = true),
@@ -921,15 +890,15 @@ class _CreateTourScreenState extends State<CreateTourScreen> {
               suffixIcon: _searchController.text.isEmpty
                   ? null
                   : IconButton(
-                tooltip: 'Clear search',
-                onPressed: _saving || _saved
-                    ? null
-                    : () {
-                  _searchController.clear();
-                  setState(() {});
-                },
-                icon: const Icon(Icons.close, size: 20),
-              ),
+                      tooltip: 'Clear search',
+                      onPressed: _saving || _saved
+                          ? null
+                          : () {
+                              _searchController.clear();
+                              setState(() {});
+                            },
+                      icon: const Icon(Icons.close, size: 20),
+                    ),
               filled: true,
               fillColor: Colors.white,
               border: OutlineInputBorder(
@@ -964,7 +933,7 @@ class _CreateTourScreenState extends State<CreateTourScreen> {
           const SizedBox(height: 20),
           _heading(
             'Your Tour (${_selected.length} '
-                '${_selected.length == 1 ? 'place' : 'places'})',
+            '${_selected.length == 1 ? 'place' : 'places'})',
           ),
           const SizedBox(height: 8),
           if (_selected.isEmpty)
@@ -992,10 +961,7 @@ class _CreateTourScreenState extends State<CreateTourScreen> {
               buildDefaultDragHandles: false,
               itemCount: _selected.length,
               onReorderItem: _reorder,
-              itemBuilder: (_, index) => _selectedRow(
-                _selected[index],
-                index,
-              ),
+              itemBuilder: (_, index) => _selectedRow(_selected[index], index),
             ),
           ],
           const SizedBox(height: 22),
@@ -1010,9 +976,7 @@ class _CreateTourScreenState extends State<CreateTourScreen> {
             ),
             const SizedBox(height: 12),
             OutlinedButton(
-              onPressed: _saving
-                  ? null
-                  : () => setState(() => _saved = false),
+              onPressed: _saving ? null : () => setState(() => _saved = false),
               style: OutlinedButton.styleFrom(
                 foregroundColor: _tourPrimary,
                 side: const BorderSide(color: _tourPrimary),
@@ -1032,27 +996,27 @@ class _CreateTourScreenState extends State<CreateTourScreen> {
               ),
               child: _saving
                   ? const SizedBox(
-                height: 22,
-                width: 22,
-                child: CircularProgressIndicator(
-                  strokeWidth: 2,
-                  color: Colors.white,
-                ),
-              )
+                      height: 22,
+                      width: 22,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: Colors.white,
+                      ),
+                    )
                   : const Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    'Review Tour',
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          'Review Tour',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        SizedBox(width: 8),
+                        Icon(Icons.arrow_forward, size: 21),
+                      ],
                     ),
-                  ),
-                  SizedBox(width: 8),
-                  Icon(Icons.arrow_forward, size: 21),
-                ],
-              ),
             ),
         ],
       ),
@@ -1067,32 +1031,26 @@ class _CreateTourScreenState extends State<CreateTourScreen> {
       onDestinationSelected: _saving
           ? null
           : (index) {
-        switch (index) {
-          case 0:
-            _navigate(widget.onHome);
-            break;
-          case 1:
-            _navigate(widget.onExplore);
-            break;
-          case 2:
-            break;
-          case 3:
-            _navigate(widget.onCommunity);
-            break;
-          case 4:
-            _navigate(widget.onProfile);
-            break;
-        }
-      },
+              switch (index) {
+                case 0:
+                  _navigate(widget.onHome);
+                  break;
+                case 1:
+                  _navigate(widget.onExplore);
+                  break;
+                case 2:
+                  break;
+                case 3:
+                  _navigate(widget.onCommunity);
+                  break;
+                case 4:
+                  _navigate(widget.onProfile);
+                  break;
+              }
+            },
       destinations: const [
-        NavigationDestination(
-          icon: Icon(Icons.home_outlined),
-          label: 'Home',
-        ),
-        NavigationDestination(
-          icon: Icon(Icons.search),
-          label: 'Explore',
-        ),
+        NavigationDestination(icon: Icon(Icons.home_outlined), label: 'Home'),
+        NavigationDestination(icon: Icon(Icons.search), label: 'Explore'),
         NavigationDestination(
           icon: Icon(Icons.add_circle_outline),
           label: 'Tours',
@@ -1170,8 +1128,8 @@ class _CreateTourScreenState extends State<CreateTourScreen> {
           ),
           body: _loading
               ? const Center(
-            child: CircularProgressIndicator(color: _tourPrimary),
-          )
+                  child: CircularProgressIndicator(color: _tourPrimary),
+                )
               : error != null
               ? _errorBody(error)
               : _formBody(filtered),
@@ -1225,10 +1183,7 @@ class _TourReviewScreen extends StatelessWidget {
         children: [
           Icon(icon, color: _tourPrimary, size: 24),
           const SizedBox(height: 9),
-          Text(
-            label,
-            style: const TextStyle(fontSize: 12, color: _tourMuted),
-          ),
+          Text(label, style: const TextStyle(fontSize: 12, color: _tourMuted)),
           const SizedBox(height: 5),
           Text(value, style: _tourTitleStyle(18)),
         ],
@@ -1349,10 +1304,7 @@ class _TourReviewScreen extends StatelessWidget {
                         ),
                         if (index < places.length - 1)
                           Expanded(
-                            child: Container(
-                              width: 2,
-                              color: _tourPrimary,
-                            ),
+                            child: Container(width: 2, color: _tourPrimary),
                           ),
                       ],
                     ),
@@ -1364,10 +1316,7 @@ class _TourReviewScreen extends StatelessWidget {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(
-                            places[index].name,
-                            style: _tourTitleStyle(16),
-                          ),
+                          Text(places[index].name, style: _tourTitleStyle(16)),
                           const SizedBox(height: 4),
                           Text(
                             _visitLabel(places[index]),
@@ -1404,7 +1353,8 @@ class _TourReviewScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final allDurationsKnown = places.isNotEmpty &&
+    final allDurationsKnown =
+        places.isNotEmpty &&
         places.every((place) {
           final minutes = place.visitMinutes;
           return minutes != null && minutes > 0;
@@ -1412,7 +1362,7 @@ class _TourReviewScreen extends StatelessWidget {
 
     final visitMinutes = places.fold<int>(
       0,
-          (total, place) => total + (place.visitMinutes ?? 0),
+      (total, place) => total + (place.visitMinutes ?? 0),
     );
 
     return Theme(
@@ -1487,16 +1437,11 @@ class _TourReviewScreen extends StatelessWidget {
                     ),
                     const SizedBox(width: 12),
                   ],
-                  Expanded(
-                    child: Text(name, style: _tourTitleStyle(19)),
-                  ),
+                  Expanded(child: Text(name, style: _tourTitleStyle(19))),
                   IconButton(
                     tooltip: 'Edit tour',
                     onPressed: () => Navigator.of(context).pop(false),
-                    icon: const Icon(
-                      Icons.edit_outlined,
-                      color: _tourPrimary,
-                    ),
+                    icon: const Icon(Icons.edit_outlined, color: _tourPrimary),
                   ),
                 ],
               ),
@@ -1587,9 +1532,7 @@ class _TourReviewScreen extends StatelessWidget {
                         borderRadius: BorderRadius.circular(8),
                       ),
                     ),
-                    child: Text(
-                      editing ? 'Save Changes' : 'Start Tour',
-                    ),
+                    child: Text(editing ? 'Save Changes' : 'Start Tour'),
                   ),
                 ),
               ],
@@ -1663,10 +1606,7 @@ class _TourPlace {
   }
 
   String? get asset {
-    final normalized = name.toLowerCase().replaceAll(
-      RegExp(r'[^a-z0-9]'),
-      '',
-    );
+    final normalized = name.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '');
 
     const assets = <String, String>{
       'isurumuniya': 'isurumuniya.png',
@@ -1710,10 +1650,7 @@ class _TourPlaceImage extends StatelessWidget {
     return Container(
       color: _tourSurface,
       alignment: Alignment.center,
-      child: const Icon(
-        Icons.account_balance_outlined,
-        color: _tourMuted,
-      ),
+      child: const Icon(Icons.account_balance_outlined, color: _tourMuted),
     );
   }
 

@@ -16,6 +16,8 @@ public class HistoricalPlaceDto {
     private String name;
     private String city;
     private String category;
+    private String climateType;
+    private String travelTags;
     private String description;
     private String imageUrl;
 

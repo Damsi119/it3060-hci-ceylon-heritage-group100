@@ -137,6 +137,33 @@ public class GuideServiceImpl implements GuideService {
 
 
     @Override
+    public GuideDto.GuideProfileResponse getGuideRequestStatus(
+            String email,
+            String phone
+    ) {
+
+        String cleanedEmail = cleanEmail(email);
+        String cleanedPhone = cleanRequired(
+                phone,
+                "Phone number is required"
+        );
+
+        GuideProfile profile = guideProfileRepository
+                .findTopByEmailIgnoreCaseAndPhoneOrderByCreatedAtDesc(
+                        cleanedEmail,
+                        cleanedPhone
+                )
+                .orElseThrow(() ->
+                        new UserException(
+                                "No guide request found for these details"
+                        )
+                );
+
+        return toResponse(profile);
+    }
+
+
+    @Override
     @Transactional
     public GuideDto.GuideProfileResponse reviewGuide(
             String adminUsername,

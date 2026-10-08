@@ -20,6 +20,11 @@ public interface GuideProfileRepository
 
     Optional<GuideProfile> findByUserIdAndUserDeletedFalse(Long userId);
 
+    Optional<GuideProfile> findTopByEmailIgnoreCaseAndPhoneOrderByCreatedAtDesc(
+            String email,
+            String phone
+    );
+
     Optional<GuideProfile> findTopByEmailIgnoreCaseAndStatusIn(
             String email,
             Collection<GuideApplicationStatus> statuses
