@@ -1,8 +1,9 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 
 import '../models/tourism_place.dart';
 import '../services/tourism_service.dart';
 import '../widgets/tourism_bottom_nav.dart';
+import '../widgets/place_image.dart';
 import 'saved_place_details.dart';
 
 /// Saved places are private to the signed-in account and loaded from the API.
@@ -203,12 +204,6 @@ class _FavouriteCard extends StatelessWidget {
   final TourismPlace place;
   final VoidCallback onTap;
   final VoidCallback onRemove;
-  IconData get _icon => switch (place.category) {
-    'RESTAURANTS' => Icons.restaurant,
-    'HOTELS' => Icons.hotel,
-    'SHOPS' => Icons.storefront,
-    _ => Icons.account_balance_outlined,
-  };
   @override
   Widget build(BuildContext context) => Container(
     padding: const EdgeInsets.all(8),
@@ -229,14 +224,11 @@ class _FavouriteCard extends StatelessWidget {
       borderRadius: BorderRadius.circular(11),
       child: Row(
         children: [
-          Container(
+          PlaceImage(
+            place: place,
             width: 54,
             height: 54,
-            decoration: BoxDecoration(
-              color: const Color(0xFFD7C3A7),
-              borderRadius: BorderRadius.circular(11),
-            ),
-            child: Icon(_icon, color: const Color(0xFF824A2B), size: 25),
+            showAttribution: true,
           ),
           const SizedBox(width: 9),
           Expanded(

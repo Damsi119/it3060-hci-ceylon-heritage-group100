@@ -1,8 +1,10 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 
 import '../models/tourism_place.dart';
 import '../services/tourism_service.dart';
 import '../widgets/tourism_bottom_nav.dart';
+import '../widgets/place_image.dart';
+import 'add_review.dart';
 import 'reviews.dart';
 
 /// Saved attraction details backed by the place and favourites APIs.
@@ -29,7 +31,10 @@ class _SavedPlaceDetailsScreenState extends State<SavedPlaceDetailsScreen> {
       if (_saved) {
         await TourismService.instance.removeFavorite(widget.place.id);
       } else {
-        await TourismService.instance.addFavorite(widget.place.id);
+        await TourismService.instance.addFavorite(
+          widget.place.id,
+          place: widget.place,
+        );
       }
       if (mounted) setState(() => _saved = !_saved);
     } catch (error) {
@@ -52,36 +57,19 @@ class _SavedPlaceDetailsScreenState extends State<SavedPlaceDetailsScreen> {
             background: Stack(
               fit: StackFit.expand,
               children: [
+                Positioned.fill(
+                  child: PlaceImage(
+                    place: widget.place,
+                    showAttribution: true,
+                  ),
+                ),
                 const DecoratedBox(
                   decoration: BoxDecoration(
                     gradient: LinearGradient(
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                      colors: [
-                        Color(0xFF197A9B),
-                        Color(0xFF83B3B4),
-                        Color(0xFF476C51),
-                        Color(0xFF9C876A),
-                      ],
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: [Color(0x11000000), Color(0xAA000000)],
                     ),
-                  ),
-                ),
-                const Positioned(
-                  right: 34,
-                  top: 68,
-                  child: Icon(
-                    Icons.wb_sunny_outlined,
-                    size: 37,
-                    color: Color(0xFFFFE4A1),
-                  ),
-                ),
-                const Positioned(
-                  right: 15,
-                  bottom: 37,
-                  child: Icon(
-                    Icons.account_balance,
-                    size: 62,
-                    color: Color(0xFFDDD0B2),
                   ),
                 ),
                 Positioned(
@@ -200,8 +188,6 @@ class _SavedPlaceDetailsScreenState extends State<SavedPlaceDetailsScreen> {
                                   ),
                                 ),
                               );
-                            if (label == 'Photos')
-                              _message('Place photos are not connected yet.');
                           },
                           backgroundColor: Colors.white,
                           selectedColor: const Color(0xFF824A2B),
@@ -220,6 +206,26 @@ class _SavedPlaceDetailsScreenState extends State<SavedPlaceDetailsScreen> {
                   }).toList(),
                 ),
                 const SizedBox(height: 10),
+                if (_tab == 'Photos') ...[
+                  Row(
+                    children: [
+                      for (var index = 0; index < 3; index++) ...[
+                        if (index > 0) const SizedBox(width: 7),
+                        Expanded(
+                          child: AspectRatio(
+                            aspectRatio: 0.9,
+                            child: PlaceImage(
+                              place: widget.place,
+                              galleryIndex: index,
+                              showAttribution: true,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                ],
                 Row(
                   children: [
                     Expanded(
@@ -338,6 +344,45 @@ class _SavedPlaceDetailsScreenState extends State<SavedPlaceDetailsScreen> {
                     ),
                   ],
                 ),
+                const SizedBox(height: 6),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    TextButton(
+                      onPressed: () => Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => ReviewsScreen(
+                            placeId: widget.place.id,
+                            placeName: widget.place.name,
+                          ),
+                        ),
+                      ),
+                      child: const Text(
+                        'See ratings & reviews',
+                        style: TextStyle(
+                          fontSize: 10,
+                          color: Color(0xFF824A2B),
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                    TextButton.icon(
+                      onPressed: _openAddReview,
+                      icon: const Icon(Icons.rate_review_outlined, size: 14),
+                      label: const Text(
+                        'Add Review',
+                        style: TextStyle(
+                          fontSize: 10,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      style: TextButton.styleFrom(
+                        foregroundColor: const Color(0xFF824A2B),
+                      ),
+                    ),
+                  ],
+                ),
               ],
             ),
           ),
@@ -350,6 +395,18 @@ class _SavedPlaceDetailsScreenState extends State<SavedPlaceDetailsScreen> {
   void _message(String message) => ScaffoldMessenger.of(
     context,
   ).showSnackBar(SnackBar(content: Text(message)));
+
+  Future<void> _openAddReview() async {
+    await Navigator.push<bool>(
+      context,
+      MaterialPageRoute(
+        builder: (_) => AddReviewScreen(
+          placeId: widget.place.id,
+          placeName: widget.place.name,
+        ),
+      ),
+    );
+  }
 }
 
 void _showCustomList(BuildContext context) => showModalBottomSheet<void>(

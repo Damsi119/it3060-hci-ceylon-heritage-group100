@@ -1,4 +1,4 @@
-class WeatherForecast {
+﻿class WeatherForecast {
   const WeatherForecast({
     required this.location,
     required this.province,

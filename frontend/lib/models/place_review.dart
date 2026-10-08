@@ -1,4 +1,4 @@
-class PlaceReview {
+﻿class PlaceReview {
   const PlaceReview({
     required this.id,
     required this.authorName,

@@ -1,9 +1,10 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 
 import '../models/tourism_place.dart';
 import '../services/tourism_service.dart';
 import '../widgets/tourism_bottom_nav.dart';
+import '../widgets/place_image.dart';
 import 'restaurant_details.dart';
 
 /// Nearby restaurants, hotels, and shops loaded from the Spring Boot API.
@@ -227,18 +228,6 @@ class _ListingCard extends StatelessWidget {
   const _ListingCard({required this.place, required this.onTap});
   final TourismPlace place;
   final VoidCallback onTap;
-  IconData get _icon => switch (place.category) {
-    'RESTAURANTS' => Icons.restaurant,
-    'HOTELS' => Icons.hotel,
-    'SHOPS' => Icons.storefront,
-    _ => Icons.museum_outlined,
-  };
-  Color get _tint => switch (place.category) {
-    'RESTAURANTS' => const Color(0xFFEBCB9D),
-    'HOTELS' => const Color(0xFFBDD5C6),
-    'SHOPS' => const Color(0xFFE9D7B6),
-    _ => const Color(0xFFD7C9BB),
-  };
 
   @override
   Widget build(BuildContext context) => Container(
@@ -253,14 +242,11 @@ class _ListingCard extends StatelessWidget {
       borderRadius: BorderRadius.circular(12),
       child: Row(
         children: [
-          Container(
+          PlaceImage(
+            place: place,
             width: 66,
             height: 66,
-            decoration: BoxDecoration(
-              color: _tint,
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Icon(_icon, size: 29, color: const Color(0xFF824A2B)),
+            showAttribution: true,
           ),
           const SizedBox(width: 11),
           Expanded(

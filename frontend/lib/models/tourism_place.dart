@@ -1,4 +1,4 @@
-class TourismPlace {
+﻿class TourismPlace {
   const TourismPlace({
     required this.id,
     required this.slug,

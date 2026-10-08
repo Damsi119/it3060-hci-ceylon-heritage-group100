@@ -4,9 +4,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:latlong2/latlong.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../models/tourism_place.dart';
 import '../services/tourism_service.dart';
+import '../widgets/place_image.dart';
 import '../widgets/tourism_bottom_nav.dart';
 import 'place_recommendations.dart';
 import 'restaurant_details.dart';
@@ -27,8 +29,10 @@ class _NearbyPlacesScreenState extends State<NearbyPlacesScreen> {
   bool _loading = true;
   bool _locating = false;
   Position? _position;
+  LatLng? _searchCenter;
   String? _locationMessage;
   String? _error;
+  int _loadSequence = 0;
   static const _categories = ['All', 'Restaurants', 'Hotels', 'Shops'];
 
   @override
@@ -45,25 +49,75 @@ class _NearbyPlacesScreenState extends State<NearbyPlacesScreen> {
   }
 
   Future<void> _loadPlaces() async {
+    final requestSequence = ++_loadSequence;
     setState(() {
       _loading = true;
       _error = null;
     });
     try {
-      final places = await TourismService.instance.getPlaces(
-        category: _category,
-        search: _searchController.text,
-        latitude: _position?.latitude,
-        longitude: _position?.longitude,
-        radiusMeters: 5000,
-      );
+      final search = _searchController.text.trim().toLowerCase();
+      (double, double)? resolved;
+      if (search.length >= 3) {
+        try {
+          resolved = await TourismService.instance.getOsmSearchCenter(search);
+        } catch (_) {
+          resolved = null;
+        }
+      }
+      if (!mounted || requestSequence != _loadSequence) return;
+      if (search.length >= 3 && resolved == null) {
+        setState(() {
+          _searchCenter = null;
+          _places = [];
+          _error = 'Could not find that location. Try a nearby city or landmark.';
+          _loading = false;
+        });
+        return;
+      }
+      final searchCenter = resolved == null
+          ? null
+          : LatLng(resolved.$1, resolved.$2);
+      if (mounted) setState(() => _searchCenter = searchCenter);
+      final latitude = searchCenter?.latitude ?? _position?.latitude ?? 6.0260;
+      final longitude = searchCenter?.longitude ?? _position?.longitude ?? 80.2170;
+      List<TourismPlace> places;
+      try {
+        places = await TourismService.instance.getOsmNearbyPlaces(
+          latitude: latitude,
+          longitude: longitude,
+          radiusMeters: 5000,
+        );
+      } catch (_) {
+        places = await TourismService.instance.getPlaces(
+          category: _category,
+          latitude: latitude,
+          longitude: longitude,
+          radiusMeters: 5000,
+        );
+      }
+
+      final category = switch (_category) {
+        'Restaurants' => 'RESTAURANTS',
+        'Hotels' => 'HOTELS',
+        'Shops' => 'SHOPS',
+        _ => null,
+      };
+      places = places.where((place) {
+        final matchesCategory = category == null || place.category == category;
+        final matchesSearch = searchCenter != null || search.isEmpty ||
+            '${place.name} ${place.category} ${place.address} ${place.city} ${place.description}'
+                .toLowerCase()
+                .contains(search);
+        return matchesCategory && matchesSearch && _distanceFor(place) <= 5000;
+      }).toList();
+      if (!mounted || requestSequence != _loadSequence) return;
       if (mounted)
         setState(() {
           _places = places;
           _loading = false;
         });
     } catch (error) {
-      if (mounted)
+      if (mounted && requestSequence == _loadSequence)
         setState(() {
           _error = error.toString();
           _loading = false;
@@ -116,12 +170,12 @@ class _NearbyPlacesScreenState extends State<NearbyPlacesScreen> {
 
   int _distanceFor(TourismPlace place) {
     final position = _position;
-    if (position == null || place.latitude == null || place.longitude == null) {
+    if (place.latitude == null || place.longitude == null) {
       return place.distanceMeters;
     }
     return Geolocator.distanceBetween(
-      position.latitude,
-      position.longitude,
+      _searchCenter?.latitude ?? position?.latitude ?? 6.0260,
+      _searchCenter?.longitude ?? position?.longitude ?? 80.2170,
       place.latitude!,
       place.longitude!,
     ).round();
@@ -129,15 +183,86 @@ class _NearbyPlacesScreenState extends State<NearbyPlacesScreen> {
 
   List<TourismPlace> get _nearbyPlaces {
     final places = [..._places];
-    if (_position != null) {
-      places.sort((a, b) => _distanceFor(a).compareTo(_distanceFor(b)));
-    }
+    places.sort((a, b) => _distanceFor(a).compareTo(_distanceFor(b)));
     return places;
   }
 
+  List<Widget> _buildPlaceSections(BuildContext context) {
+    if (_places.isEmpty) {
+      return const [
+        Padding(
+          padding: EdgeInsets.all(20),
+          child: Text('No places found nearby.'),
+        ),
+      ];
+    }
+
+    final searching = _searchController.text.trim().isNotEmpty;
+    if (searching || _category != 'All') {
+      final places = searching
+          ? _nearbyPlaces.take(30).toList()
+          : _nearbyPlaces.take(3).toList();
+      return [
+        _SectionHeading(
+          title: searching ? 'Places near ${_searchController.text.trim()}' : 'Top $_category Nearby',
+          action: '',
+        ),
+        const SizedBox(height: 9),
+        ..._buildPlaceCards(context, places),
+      ];
+    }
+
+    const sections = <(String, Set<String>)>[
+      ('Recommended Visiting Places', {'HERITAGE', 'MUSEUM'}),
+      ('Restaurants Nearby', {'RESTAURANTS'}),
+      ('Shops Nearby', {'SHOPS'}),
+      ('Hotels Nearby', {'HOTELS'}),
+    ];
+    final widgets = <Widget>[];
+    for (final (title, categories) in sections) {
+      final places = _nearbyPlaces
+          .where((place) => categories.contains(place.category))
+          .take(3)
+          .toList();
+      if (places.isEmpty) continue;
+      if (widgets.isNotEmpty) widgets.add(const SizedBox(height: 14));
+      widgets.add(_SectionHeading(title: title, action: ''));
+      widgets.add(const SizedBox(height: 9));
+      widgets.addAll(_buildPlaceCards(context, places));
+    }
+    if (widgets.isEmpty) {
+      widgets.add(
+        const Padding(
+          padding: EdgeInsets.all(20),
+          child: Text('No visiting places or local businesses found nearby.'),
+        ),
+      );
+    }
+    return widgets;
+  }
+
+  List<Widget> _buildPlaceCards(
+    BuildContext context,
+    List<TourismPlace> places,
+  ) => [
+    for (var index = 0; index < places.length; index++) ...[
+      _PlaceCard(
+        place: places[index],
+        distanceMeters: _distanceFor(places[index]),
+        onTap: () => Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => RestaurantDetailsScreen(place: places[index]),
+          ),
+        ),
+      ),
+      const SizedBox(height: 9),
+    ],
+  ];
+
   void _searchChanged(String value) {
     _searchDebounce?.cancel();
-    _searchDebounce = Timer(const Duration(milliseconds: 350), _loadPlaces);
+    _searchDebounce = Timer(const Duration(milliseconds: 700), _loadPlaces);
   }
 
   @override
@@ -157,7 +282,9 @@ class _NearbyPlacesScreenState extends State<NearbyPlacesScreen> {
                     children: [
                       Expanded(
                         child: Text(
-                          _position == null
+                          _searchCenter != null
+                              ? 'Near ${_searchController.text.trim()}, Sri Lanka'
+                              : _position == null
                               ? 'Galle, Sri Lanka · sample location'
                               : 'Your location · ${_position!.latitude.toStringAsFixed(4)}, ${_position!.longitude.toStringAsFixed(4)}',
                           style: _subtle,
@@ -202,6 +329,7 @@ class _NearbyPlacesScreenState extends State<NearbyPlacesScreen> {
                   TextField(
                     controller: _searchController,
                     onChanged: _searchChanged,
+                    onSubmitted: (_) => _loadPlaces(),
                     decoration: InputDecoration(
                       hintText: 'Search nearby places...',
                       hintStyle: const TextStyle(
@@ -244,6 +372,7 @@ class _NearbyPlacesScreenState extends State<NearbyPlacesScreen> {
                       child: NearbyMap(
                         places: _places,
                         position: _position,
+                        mapCenter: _searchCenter,
                         onPlaceTap: (place) => Navigator.push(
                           context,
                           MaterialPageRoute(
@@ -258,16 +387,11 @@ class _NearbyPlacesScreenState extends State<NearbyPlacesScreen> {
                   const Padding(
                     padding: EdgeInsets.only(top: 4),
                     child: Text(
-                      'Map and place data © OpenStreetMap contributors',
+                      'Map and place data © OpenStreetMap contributors · ODbL',
                       style: TextStyle(fontSize: 9, color: Color(0xFF68716D)),
                     ),
                   ),
                   const SizedBox(height: 15),
-                  const _SectionHeading(
-                    title: 'Top Places Nearby',
-                    action: 'See All',
-                  ),
-                  const SizedBox(height: 9),
                   if (_loading)
                     const Padding(
                       padding: EdgeInsets.all(28),
@@ -275,26 +399,8 @@ class _NearbyPlacesScreenState extends State<NearbyPlacesScreen> {
                     )
                   else if (_error != null)
                     _LoadError(message: _error!, onRetry: _loadPlaces)
-                  else if (_places.isEmpty)
-                    const Padding(
-                      padding: EdgeInsets.all(20),
-                      child: Text('No places found nearby.'),
-                    )
                   else
-                    for (final place in _nearbyPlaces) ...[
-                      _PlaceCard(
-                        place: place,
-                        distanceMeters: _distanceFor(place),
-                        onTap: () => Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) =>
-                                RestaurantDetailsScreen(place: place),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 9),
-                    ],
+                    ..._buildPlaceSections(context),
                   OutlinedButton(
                     onPressed: () => Navigator.push(
                       context,
@@ -377,19 +483,6 @@ class _PlaceCard extends StatelessWidget {
   final TourismPlace place;
   final int distanceMeters;
   final VoidCallback onTap;
-  IconData get _icon => switch (place.category) {
-    'RESTAURANTS' => Icons.restaurant,
-    'HOTELS' => Icons.hotel,
-    'SHOPS' => Icons.storefront,
-    'MUSEUM' => Icons.museum_outlined,
-    _ => Icons.account_balance_outlined,
-  };
-  Color get _color => switch (place.category) {
-    'RESTAURANTS' => const Color(0xFFEBCB9D),
-    'HOTELS' => const Color(0xFFBDD5C6),
-    'SHOPS' => const Color(0xFFE9D7B6),
-    _ => const Color(0xFFD7C9BB),
-  };
   @override
   Widget build(BuildContext context) => Container(
     padding: const EdgeInsets.all(9),
@@ -403,14 +496,8 @@ class _PlaceCard extends StatelessWidget {
       borderRadius: BorderRadius.circular(12),
       child: Row(
         children: [
-          Container(
-            width: 57,
-            height: 57,
-            decoration: BoxDecoration(
-              color: _color,
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Icon(_icon, color: _brown, size: 27),
+          _NearbyThumbnail(
+            place: place,
           ),
           const SizedBox(width: 10),
           Expanded(
@@ -431,13 +518,16 @@ class _PlaceCard extends StatelessWidget {
                 const SizedBox(height: 5),
                 Row(
                   children: [
-                    const Icon(Icons.star, color: Color(0xFFE99A26), size: 13),
-                    Text(
-                      ' ${place.rating.toStringAsFixed(1)} · ${_distanceLabel(distanceMeters)}',
-                      style: const TextStyle(
-                        fontSize: 9,
-                        color: Color(0xFF5B625E),
+                    if (place.rating > 0) ...[
+                      const Icon(Icons.star, color: Color(0xFFE99A26), size: 13),
+                      Text(
+                        ' ${place.rating.toStringAsFixed(1)} · ',
+                        style: const TextStyle(fontSize: 9, color: Color(0xFF5B625E)),
                       ),
+                    ],
+                    Text(
+                      _distanceLabel(distanceMeters),
+                      style: const TextStyle(fontSize: 9, color: Color(0xFF5B625E)),
                     ),
                     const SizedBox(width: 7),
                     _Status(open: place.isOpen),
@@ -457,6 +547,20 @@ class _PlaceCard extends StatelessWidget {
   );
 }
 
+class _NearbyThumbnail extends StatelessWidget {
+  const _NearbyThumbnail({required this.place});
+
+  final TourismPlace place;
+
+  @override
+  Widget build(BuildContext context) => PlaceImage(
+    place: place,
+    width: 57,
+    height: 57,
+    showAttribution: true,
+  );
+}
+
 String _distanceLabel(int meters) =>
     meters >= 1000 ? '${(meters / 1000).toStringAsFixed(1)} km' : '$meters m';
 
@@ -467,24 +571,31 @@ class NearbyMap extends StatelessWidget {
     required this.position,
     required this.onPlaceTap,
     this.showOpenButton = false,
+    this.initialCenter,
+    this.initialZoom = 14,
+    this.mapCenter,
   });
 
   final List<TourismPlace> places;
   final Position? position;
   final ValueChanged<TourismPlace> onPlaceTap;
   final bool showOpenButton;
+  final LatLng? initialCenter;
+  final double initialZoom;
+  final LatLng? mapCenter;
 
   static const _fallbackCenter = LatLng(6.0260, 80.2170);
 
   @override
   Widget build(BuildContext context) {
-    final center = position == null
-        ? _fallbackCenter
-        : LatLng(position!.latitude, position!.longitude);
+    final center = mapCenter ??
+        (position == null
+            ? initialCenter ?? _fallbackCenter
+            : LatLng(position!.latitude, position!.longitude));
     final markers = <Marker>[
       if (position != null)
         Marker(
-          point: center,
+          point: LatLng(position!.latitude, position!.longitude),
           width: 42,
           height: 42,
           child: const Icon(Icons.my_location, color: Colors.blue, size: 30),
@@ -510,7 +621,7 @@ class NearbyMap extends StatelessWidget {
             key: ValueKey('${center.latitude},${center.longitude}'),
             options: MapOptions(
               initialCenter: center,
-              initialZoom: position == null ? 14.0 : 13.0,
+              initialZoom: position == null ? initialZoom : 13.0,
             ),
             children: [
               TileLayer(
@@ -518,9 +629,15 @@ class NearbyMap extends StatelessWidget {
                 userAgentPackageName: 'com.example.frontend',
               ),
               MarkerLayer(markers: markers),
-              const RichAttributionWidget(
+              RichAttributionWidget(
                 attributions: [
-                  TextSourceAttribution('© OpenStreetMap contributors'),
+                  TextSourceAttribution(
+                    '© OpenStreetMap contributors · ODbL',
+                    onTap: () => launchUrl(
+                      Uri.parse('https://www.openstreetmap.org/copyright'),
+                      mode: LaunchMode.externalApplication,
+                    ),
+                  ),
                 ],
               ),
             ],
@@ -644,6 +761,7 @@ class NearbyMapScreen extends StatefulWidget {
 
 class _NearbyMapScreenState extends State<NearbyMapScreen> {
   List<TourismPlace> _places = [];
+  String _category = 'All';
   Position? _position;
   bool _loading = true;
   bool _locating = false;
@@ -661,10 +779,8 @@ class _NearbyMapScreenState extends State<NearbyMapScreen> {
       _error = null;
     });
     try {
-      final places = await TourismService.instance.getPlaces(
-        latitude: _position?.latitude,
-        longitude: _position?.longitude,
-        radiusMeters: 5000,
+      final places = await TourismService.instance.getSriLankaPlaces(
+        category: _category,
       );
       if (mounted)
         setState(() {
@@ -729,7 +845,7 @@ class _NearbyMapScreenState extends State<NearbyMapScreen> {
               Expanded(
                 child: Text(
                   _position == null
-                      ? 'Galle sample map'
+                      ? 'Sri Lanka mapped places'
                       : 'Your location · ${_position!.latitude.toStringAsFixed(4)}, ${_position!.longitude.toStringAsFixed(4)}',
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
@@ -749,6 +865,36 @@ class _NearbyMapScreenState extends State<NearbyMapScreen> {
             ],
           ),
         ),
+        SizedBox(
+          height: 48,
+          child: ListView(
+            scrollDirection: Axis.horizontal,
+            padding: const EdgeInsets.symmetric(horizontal: 10),
+            children: ['All', 'Historical', 'Restaurants', 'Hotels', 'Shops']
+                .map((category) {
+                  final selected = category == _category;
+                  return Padding(
+                    padding: const EdgeInsets.only(right: 7),
+                    child: ChoiceChip(
+                      label: Text(category),
+                      selected: selected,
+                      showCheckmark: false,
+                      selectedColor: const Color(0xFF824A2B),
+                      labelStyle: TextStyle(
+                        color: selected ? Colors.white : const Color(0xFF47514D),
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                      ),
+                      onSelected: (_) {
+                        setState(() => _category = category);
+                        _loadPlaces();
+                      },
+                    ),
+                  );
+                })
+                .toList(),
+          ),
+        ),
         if (_error != null)
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -760,6 +906,8 @@ class _NearbyMapScreenState extends State<NearbyMapScreen> {
               : NearbyMap(
                   places: _places,
                   position: _position,
+                  initialCenter: const LatLng(7.8731, 80.7718),
+                  initialZoom: 7,
                   onPlaceTap: (place) => Navigator.push(
                     context,
                     MaterialPageRoute(
@@ -771,7 +919,7 @@ class _NearbyMapScreenState extends State<NearbyMapScreen> {
         const Padding(
           padding: EdgeInsets.all(6),
           child: Text(
-            'Map and place data © OpenStreetMap contributors',
+            'Map and place data © OpenStreetMap contributors · ODbL',
             style: TextStyle(fontSize: 9),
           ),
         ),

@@ -1,8 +1,9 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 
 import '../models/tourism_place.dart';
 import '../services/tourism_service.dart';
 import '../widgets/tourism_bottom_nav.dart';
+import '../widgets/place_image.dart';
 import 'saved_place_details.dart';
 
 /// Curated places loaded and ranked by the API.
@@ -67,7 +68,7 @@ class _PlaceRecommendationsScreenState
             style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
           ),
           Text(
-            'Curated places around Galle',
+            'Curated places across Sri Lanka',
             style: TextStyle(fontSize: 10, color: Color(0xFF68716D)),
           ),
         ],
@@ -158,12 +159,34 @@ class _PlaceRecommendationsScreenState
                 )
               : ListView.separated(
                   padding: const EdgeInsets.fromLTRB(17, 4, 17, 20),
-                  itemCount: _places.length,
-                  separatorBuilder: (_, __) => const SizedBox(height: 9),
+                  itemCount: _places.length + 1,
+                  separatorBuilder: (_, index) =>
+                      SizedBox(height: index == _places.length - 1 ? 12 : 9),
                   itemBuilder: (context, index) {
+                    if (index == _places.length) {
+                      return OutlinedButton(
+                        onPressed: _load,
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: const Color(0xFF824A2B),
+                          side: const BorderSide(color: Color(0xFF824A2B)),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(11),
+                          ),
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                        ),
+                        child: const Text(
+                          'View All Recommendations',
+                          style: TextStyle(
+                            fontSize: 10,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      );
+                    }
                     final place = _places[index];
                     return _RecommendationCard(
                       place: place,
+                      photoColumn: index % 3,
                       onTap: () => Navigator.push(
                         context,
                         MaterialPageRoute(
@@ -181,21 +204,14 @@ class _PlaceRecommendationsScreenState
 }
 
 class _RecommendationCard extends StatelessWidget {
-  const _RecommendationCard({required this.place, required this.onTap});
+  const _RecommendationCard({
+    required this.place,
+    required this.photoColumn,
+    required this.onTap,
+  });
   final TourismPlace place;
+  final int photoColumn;
   final VoidCallback onTap;
-  IconData get _icon => switch (place.category) {
-    'MUSEUM' => Icons.museum_outlined,
-    'RESTAURANTS' => Icons.restaurant,
-    'HOTELS' => Icons.hotel,
-    _ => Icons.account_balance_outlined,
-  };
-  Color get _tint => switch (place.category) {
-    'MUSEUM' => const Color(0xFFC7D6D3),
-    'RESTAURANTS' => const Color(0xFFEBCB9D),
-    'HOTELS' => const Color(0xFFBDD5C6),
-    _ => const Color(0xFFD7C3A7),
-  };
   @override
   Widget build(BuildContext context) => Container(
     padding: const EdgeInsets.all(8),
@@ -209,14 +225,9 @@ class _RecommendationCard extends StatelessWidget {
       borderRadius: BorderRadius.circular(12),
       child: Row(
         children: [
-          Container(
-            width: 61,
-            height: 61,
-            decoration: BoxDecoration(
-              color: _tint,
-              borderRadius: BorderRadius.circular(11),
-            ),
-            child: Icon(_icon, size: 28, color: const Color(0xFF824A2B)),
+          _RecommendationPhoto(
+            place: place,
+            column: photoColumn,
           ),
           const SizedBox(width: 10),
           Expanded(
@@ -274,5 +285,24 @@ class _RecommendationCard extends StatelessWidget {
         ],
       ),
     ),
+  );
+}
+
+class _RecommendationPhoto extends StatelessWidget {
+  const _RecommendationPhoto({
+    required this.place,
+    required this.column,
+  });
+
+  final TourismPlace place;
+  final int column;
+
+  @override
+  Widget build(BuildContext context) => PlaceImage(
+    place: place,
+    width: 61,
+    height: 61,
+    galleryIndex: column,
+    showAttribution: true,
   );
 }
