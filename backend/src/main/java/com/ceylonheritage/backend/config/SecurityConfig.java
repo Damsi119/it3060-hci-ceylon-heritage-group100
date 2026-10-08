@@ -1,6 +1,7 @@
 package com.ceylonheritage.backend.config;
 
 import com.ceylonheritage.backend.security.JwtAuthFilter;
+import java.util.List;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
@@ -11,6 +12,8 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import org.springframework.web.cors.CorsConfiguration;
+import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
 @Configuration
 @EnableMethodSecurity
@@ -33,6 +36,13 @@ public class SecurityConfig {
     ) throws Exception {
 
         http
+                // Allow local Flutter Web requests for places and community.
+                .cors(cors ->
+                        cors.configurationSource(
+                                placesCorsConfiguration()
+                        )
+                )
+
                 .csrf(csrf -> csrf.disable())
 
                 .sessionManagement(session ->
@@ -146,5 +156,108 @@ public class SecurityConfig {
                 );
 
         return http.build();
+    }
+
+    private UrlBasedCorsConfigurationSource placesCorsConfiguration() {
+        CorsConfiguration configuration = new CorsConfiguration();
+
+        configuration.setAllowedOrigins(
+                List.of("http://localhost:3000")
+        );
+
+        configuration.setAllowedMethods(
+                List.of("GET", "OPTIONS")
+        );
+
+        configuration.setAllowedHeaders(
+                List.of(
+                        "Content-Type",
+                        "Accept",
+                        "Authorization"
+                )
+        );
+
+        configuration.setMaxAge(3600L);
+
+        UrlBasedCorsConfigurationSource source =
+                new UrlBasedCorsConfigurationSource();
+
+        source.registerCorsConfiguration(
+                "/api/places",
+                configuration
+        );
+
+        source.registerCorsConfiguration(
+                "/api/places/**",
+                configuration
+        );
+
+        // Community API: browsing, publishing, editing,
+        // deleting, likes and comments.
+        CorsConfiguration communityConfiguration =
+                new CorsConfiguration();
+
+        communityConfiguration.setAllowedOrigins(
+                List.of("http://localhost:3000")
+        );
+
+        communityConfiguration.setAllowedMethods(
+                List.of(
+                        "GET",
+                        "POST",
+                        "PUT",
+                        "DELETE",
+                        "OPTIONS"
+                )
+        );
+
+        communityConfiguration.setAllowedHeaders(
+                List.of(
+                        "Content-Type",
+                        "Accept",
+                        "Authorization"
+                )
+        );
+
+        communityConfiguration.setMaxAge(3600L);
+
+        source.registerCorsConfiguration(
+                "/api/posts",
+                communityConfiguration
+        );
+
+        source.registerCorsConfiguration(
+                "/api/posts/**",
+                communityConfiguration
+        );
+
+        // Uploaded community photos: read-only browser access.
+        CorsConfiguration photoConfiguration =
+                new CorsConfiguration();
+
+        photoConfiguration.setAllowedOrigins(
+                List.of("http://localhost:3000")
+        );
+
+        photoConfiguration.setAllowedMethods(
+                List.of("GET", "HEAD", "OPTIONS")
+        );
+
+        photoConfiguration.setAllowedHeaders(
+                List.of(
+                        "Content-Type",
+                        "Accept",
+                        "Authorization"
+                )
+        );
+
+        photoConfiguration.setMaxAge(3600L);
+
+        source.registerCorsConfiguration(
+                "/uploads/community-posts/**",
+                photoConfiguration
+        );
+
+        return source;
     }
 }
