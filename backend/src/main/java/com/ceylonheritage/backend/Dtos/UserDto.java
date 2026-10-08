@@ -208,9 +208,15 @@ public class UserDto {
 
             boolean success,
 
-            String message
+            String message,
 
-    ) {}
+            Boolean verificationRequired
+
+    ) {
+        public MessageResponse(boolean success, String message) {
+            this(success, message, null);
+        }
+    }
 
     public record GoogleLoginRequest(
 

@@ -58,5 +58,7 @@ cookie:
   same-site: Lax
 
 app:
+  auth:
+    email-verification-required: true
   upload:
     post-directory: uploads/community-posts

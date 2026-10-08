@@ -4,12 +4,13 @@ Ceylon Heritage mobile client built with Flutter.
 
 ## Local configuration
 
-The API URL and Google server client ID are supplied at build time:
+The API URL, Google sign-in client ID, and (optionally) Google Places API key are supplied at build time. To show Google place photos, enable Places API (New) with billing in Google Cloud and restrict the key to the app/platform and Places API. The key is part of the client app, so use an appropriately restricted key.
 
 ```sh
 flutter run \
   --dart-define=API_BASE_URL=http://10.0.2.2:8081 \
-  --dart-define=GOOGLE_SERVER_CLIENT_ID=your_google_server_client_id
+  --dart-define=GOOGLE_SERVER_CLIENT_ID=your_google_server_client_id \
+  --dart-define=GOOGLE_PLACES_API_KEY=your_restricted_places_api_key
 ```
 
 ## Getting Started

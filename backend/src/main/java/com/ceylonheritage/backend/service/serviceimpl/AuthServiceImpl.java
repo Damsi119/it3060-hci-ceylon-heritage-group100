@@ -12,6 +12,7 @@ import com.ceylonheritage.backend.service.AuthService;
 import com.ceylonheritage.backend.service.EmailService;
 import com.ceylonheritage.backend.utils.OtpUtil;
 import com.ceylonheritage.backend.utils.TokenHashUtil;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.mail.MailException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -28,6 +29,9 @@ public class AuthServiceImpl implements AuthService {
     private final EmailService emailService;
     private final JwtService jwtService;
     private final GoogleTokenService googleTokenService;
+
+    @Value("${app.auth.email-verification-required:true}")
+    private boolean emailVerificationRequired;
 
     public AuthServiceImpl(
             UserRepository userRepository,
@@ -121,30 +125,51 @@ public class AuthServiceImpl implements AuthService {
                 .address(request.address())
                 .role(Role.TOURIST)
                 .provider(AuthProvider.LOCAL)
-                .emailVerified(false)
+                .emailVerified(!emailVerificationRequired)
                 .enabled(true)
                 .deleted(false)
-                .verifyCode(otp)
-                .verifyCodeExpiry(
-                        now.plusMinutes(5)
-                )
-                .lastOtpSentAt(now)
+                .verifyCode(emailVerificationRequired ? otp : null)
+                .verifyCodeExpiry(emailVerificationRequired ? now.plusMinutes(5) : null)
+                .lastOtpSentAt(emailVerificationRequired ? now : null)
                 .otpResendCount(0)
                 .build();
 
         userRepository.save(user);
 
-        UserDto.MessageResponse mailResponse =
-                sendVerificationCodeSafely(
-                        user.getEmail(),
-                        otp,
-                        "Registration successful. Check your email for the verification code."
-                );
+        if (!emailVerificationRequired) {
+            return new UserDto.MessageResponse(
+                    true,
+                    "Registration successful. You can now sign in.",
+                    false
+            );
+        }
 
-        return mailResponse;
+        return sendVerificationCodeSafely(
+                user.getEmail(),
+                otp,
+                "Registration successful. Check your email for the verification code."
+        );
     }
 
     private UserDto.MessageResponse refreshRegistrationOtp(User user) {
+        if (!emailVerificationRequired) {
+            user.setEmailVerified(true);
+            user.setVerifyCode(null);
+            user.setVerifyCodeExpiry(null);
+            user.setLastOtpSentAt(null);
+            user.setOtpResendCount(0);
+            user.setOtpFirstResendTime(null);
+            user.setOtpBlockUntil(null);
+
+            userRepository.save(user);
+
+            return new UserDto.MessageResponse(
+                    true,
+                    "Registration successful. You can now sign in.",
+                    false
+            );
+        }
+
         String otp = OtpUtil.generateOtp();
         LocalDateTime now = LocalDateTime.now();
 
@@ -179,13 +204,15 @@ public class AuthServiceImpl implements AuthService {
 
             return new UserDto.MessageResponse(
                     true,
-                    successMessage
+                    successMessage,
+                    true
             );
 
         } catch (MailException exception) {
             return new UserDto.MessageResponse(
                     true,
-                    "Account created, but the email could not be sent. Check mail settings and use Resend code."
+                    "Account created, but the email could not be sent. Check mail settings and use Resend code.",
+                    true
             );
         }
     }
