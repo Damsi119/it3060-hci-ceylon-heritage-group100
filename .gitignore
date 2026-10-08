@@ -34,3 +34,4 @@ frontend/android/local.properties
 .DS_Store
 Thumbs.db
 **/application-local.yml
+.tooling/
