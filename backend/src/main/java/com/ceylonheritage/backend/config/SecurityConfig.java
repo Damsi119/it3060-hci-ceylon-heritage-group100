@@ -36,10 +36,9 @@ public class SecurityConfig {
     ) throws Exception {
 
         http
-                // Allow local Flutter Web requests for places and community.
                 .cors(cors ->
                         cors.configurationSource(
-                                placesCorsConfiguration()
+                                corsConfigurationSource()
                         )
                 )
 
@@ -84,6 +83,13 @@ public class SecurityConfig {
                                 HttpMethod.GET,
                                 "/api/places",
                                 "/api/places/**"
+                        )
+                        .permitAll()
+
+                        // Weather forecasts are public tourism information.
+                        .requestMatchers(
+                                HttpMethod.GET,
+                                "/api/weather/**"
                         )
                         .permitAll()
 
@@ -158,15 +164,15 @@ public class SecurityConfig {
         return http.build();
     }
 
-    private UrlBasedCorsConfigurationSource placesCorsConfiguration() {
+    private UrlBasedCorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
 
-        configuration.setAllowedOrigins(
-                List.of("http://localhost:3000")
+        configuration.setAllowedOriginPatterns(
+                List.of("http://localhost:*", "http://127.0.0.1:*")
         );
 
         configuration.setAllowedMethods(
-                List.of("GET", "OPTIONS")
+                List.of("GET", "POST", "PUT", "DELETE", "HEAD", "OPTIONS")
         );
 
         configuration.setAllowedHeaders(
@@ -182,81 +188,7 @@ public class SecurityConfig {
         UrlBasedCorsConfigurationSource source =
                 new UrlBasedCorsConfigurationSource();
 
-        source.registerCorsConfiguration(
-                "/api/places",
-                configuration
-        );
-
-        source.registerCorsConfiguration(
-                "/api/places/**",
-                configuration
-        );
-
-        // Community API: browsing, publishing, editing,
-        // deleting, likes and comments.
-        CorsConfiguration communityConfiguration =
-                new CorsConfiguration();
-
-        communityConfiguration.setAllowedOrigins(
-                List.of("http://localhost:3000")
-        );
-
-        communityConfiguration.setAllowedMethods(
-                List.of(
-                        "GET",
-                        "POST",
-                        "PUT",
-                        "DELETE",
-                        "OPTIONS"
-                )
-        );
-
-        communityConfiguration.setAllowedHeaders(
-                List.of(
-                        "Content-Type",
-                        "Accept",
-                        "Authorization"
-                )
-        );
-
-        communityConfiguration.setMaxAge(3600L);
-
-        source.registerCorsConfiguration(
-                "/api/posts",
-                communityConfiguration
-        );
-
-        source.registerCorsConfiguration(
-                "/api/posts/**",
-                communityConfiguration
-        );
-
-        // Uploaded community photos: read-only browser access.
-        CorsConfiguration photoConfiguration =
-                new CorsConfiguration();
-
-        photoConfiguration.setAllowedOrigins(
-                List.of("http://localhost:3000")
-        );
-
-        photoConfiguration.setAllowedMethods(
-                List.of("GET", "HEAD", "OPTIONS")
-        );
-
-        photoConfiguration.setAllowedHeaders(
-                List.of(
-                        "Content-Type",
-                        "Accept",
-                        "Authorization"
-                )
-        );
-
-        photoConfiguration.setMaxAge(3600L);
-
-        source.registerCorsConfiguration(
-                "/uploads/community-posts/**",
-                photoConfiguration
-        );
+        source.registerCorsConfiguration("/**", configuration);
 
         return source;
     }

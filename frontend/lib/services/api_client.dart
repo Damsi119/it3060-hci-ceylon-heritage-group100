@@ -72,33 +72,42 @@ class ApiClient {
     final encodedBody = body == null ? null : jsonEncode(body);
     late http.Response response;
 
-    switch (method) {
-      case 'GET':
-        response = await http.get(_uri(path), headers: headers);
-        break;
-      case 'POST':
-        response = await http.post(
-          _uri(path),
-          headers: headers,
-          body: encodedBody,
-        );
-        break;
-      case 'PUT':
-        response = await http.put(
-          _uri(path),
-          headers: headers,
-          body: encodedBody,
-        );
-        break;
-      case 'DELETE':
-        response = await http.delete(
-          _uri(path),
-          headers: headers,
-          body: encodedBody,
-        );
-        break;
-      default:
-        throw const ApiException('Unsupported request method');
+    try {
+      switch (method) {
+        case 'GET':
+          response = await http.get(_uri(path), headers: headers);
+          break;
+        case 'POST':
+          response = await http.post(
+            _uri(path),
+            headers: headers,
+            body: encodedBody,
+          );
+          break;
+        case 'PUT':
+          response = await http.put(
+            _uri(path),
+            headers: headers,
+            body: encodedBody,
+          );
+          break;
+        case 'DELETE':
+          response = await http.delete(
+            _uri(path),
+            headers: headers,
+            body: encodedBody,
+          );
+          break;
+        default:
+          throw const ApiException('Unsupported request method');
+      }
+    } on http.ClientException catch (error) {
+      throw ApiException(
+        'Could not connect to ${ApiConfig.baseUrl}. Check that Spring Boot is running and that this address is reachable. (${error.message})',
+      );
+    } catch (error) {
+      if (error is ApiException) rethrow;
+      throw ApiException('Request to ${_uri(path)} failed: $error');
     }
 
     if (response.statusCode == 401 && authenticated && retryAfterRefresh) {
@@ -129,6 +138,16 @@ class ApiClient {
 
     if (response.statusCode >= 200 && response.statusCode < 300) {
       return data;
+    }
+
+    if (response.statusCode == 401) {
+      throw const ApiException(
+        'Your session expired. Please log in again.',
+        401,
+      );
+    }
+    if (response.statusCode == 403) {
+      throw const ApiException('Please log in to perform this action.', 403);
     }
 
     String message = 'Something went wrong';
