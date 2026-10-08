@@ -2,6 +2,7 @@ package com.ceylonheritage.backend.service;
 
 import com.ceylonheritage.backend.Dtos.UserDto;
 import com.ceylonheritage.backend.enums.Role;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
 
@@ -12,6 +13,16 @@ public interface UserService {
     UserDto.UserProfileResponse updateProfile(
             String username,
             UserDto.UpdateProfileRequest request
+    );
+
+    UserDto.UserProfileResponse updateProfilePhoto(
+            String username,
+            MultipartFile photo
+    );
+
+    UserDto.UserProfileResponse updateCoverPhoto(
+            String username,
+            MultipartFile photo
     );
 
     UserDto.MessageResponse changePassword(

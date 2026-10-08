@@ -367,19 +367,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
     return access;
   }
 
-  String _responseError(http.Response response) {
-    if (response.statusCode == 401) {
-      return 'Please sign in again before publishing.';
-    }
-
-    if (response.statusCode == 403) {
-      return 'Your account is not permitted to publish this post.';
-    }
-
-    if (response.statusCode == 413) {
-      return 'The upload is too large for the server.';
-    }
-
+  String? _responseMessage(http.Response response) {
     try {
       final dynamic decoded = jsonDecode(utf8.decode(response.bodyBytes));
 
@@ -393,7 +381,44 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
         }
       }
     } catch (_) {
-      // Use a readable fallback for non-JSON responses.
+      return null;
+    }
+
+    return null;
+  }
+
+  bool _shouldRefreshAccess(http.Response response) {
+    if (response.statusCode == 401) return true;
+    if (response.statusCode != 403) return false;
+
+    final String message = _responseMessage(response)?.toLowerCase() ?? '';
+
+    return message.isEmpty ||
+        message == 'access denied' ||
+        message.contains('authentication');
+  }
+
+  String _responseError(http.Response response) {
+    final String? message = _responseMessage(response);
+
+    if (response.statusCode == 401) {
+      return 'Please sign in again before publishing.';
+    }
+
+    if (response.statusCode == 403) {
+      if (message != null && message.toLowerCase() != 'access denied') {
+        return message;
+      }
+
+      return 'Your account is not permitted to publish this post.';
+    }
+
+    if (response.statusCode == 413) {
+      return 'The upload is too large for the server.';
+    }
+
+    if (message != null) {
+      return message;
     }
 
     if (response.statusCode == 400) {
@@ -474,7 +499,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
         payload,
       ).timeout(const Duration(seconds: 60));
 
-      if (response.statusCode == 401) {
+      if (_shouldRefreshAccess(response)) {
         final String? refreshed = await _refreshAccessToken(client);
 
         if (refreshed != null) {
@@ -746,7 +771,6 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
               ),
             ),
           ),
-          bottomNavigationBar: _bottomNavigation(),
         ),
       ),
     );
@@ -1186,68 +1210,6 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
                   ],
                 ],
               ),
-      ),
-    );
-  }
-
-  Widget _bottomNavigation() {
-    return NavigationBarTheme(
-      data: NavigationBarThemeData(
-        labelTextStyle: WidgetStateProperty.resolveWith<TextStyle>(
-          (states) => TextStyle(
-            fontSize: 11,
-            color: states.contains(WidgetState.selected) ? _primary : _muted,
-          ),
-        ),
-      ),
-      child: NavigationBar(
-        selectedIndex: 3,
-        height: 68,
-        backgroundColor: Colors.white,
-        indicatorColor: _surface,
-        labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
-        onDestinationSelected: (index) {
-          switch (index) {
-            case 0:
-              _navigate(widget.onHome, 'Home');
-              break;
-            case 1:
-              _navigate(widget.onExplore, 'Explore');
-              break;
-            case 2:
-              _navigate(widget.onTours, 'Tours');
-              break;
-            case 3:
-              _navigate(widget.onCommunity, 'Community');
-              break;
-            case 4:
-              _navigate(widget.onProfile, 'Profile');
-              break;
-          }
-        },
-        destinations: const [
-          NavigationDestination(
-            icon: Icon(Icons.home_outlined, color: _muted),
-            label: 'Home',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.search, color: _muted),
-            label: 'Explore',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.add_circle_outline, color: _muted),
-            label: 'Tours',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.groups_outlined, color: _muted),
-            selectedIcon: Icon(Icons.groups, color: _primary),
-            label: 'Community',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.person_outline, color: _muted),
-            label: 'Profile',
-          ),
-        ],
       ),
     );
   }

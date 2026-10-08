@@ -2,13 +2,23 @@ import '../models/auth_response.dart';
 import 'api_client.dart';
 import 'token_store.dart';
 
+class RegisterResult {
+  const RegisterResult({
+    required this.message,
+    required this.verificationRequired,
+  });
+
+  final String message;
+  final bool verificationRequired;
+}
+
 class AuthService {
   AuthService._();
 
   static final AuthService instance = AuthService._();
   final ApiClient _api = ApiClient.instance;
 
-  Future<bool> register({
+  Future<RegisterResult> register({
     required String username,
     required String email,
     required String phone,
@@ -36,7 +46,10 @@ class AuthService {
             )
             as Map<String, dynamic>;
 
-    return data['verificationRequired'] as bool? ?? true;
+    return RegisterResult(
+      message: data['message'] as String? ?? 'Registration successful',
+      verificationRequired: data['verificationRequired'] as bool? ?? true,
+    );
   }
 
   Future<String> verifyEmail(String email, String code) async {

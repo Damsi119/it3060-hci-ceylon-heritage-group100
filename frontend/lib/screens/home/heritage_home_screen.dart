@@ -1,12 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../core/constants/api_config.dart';
+import '../../models/user_profile.dart';
 import '../../services/api_client.dart';
+import '../../widgets/heritage_logo.dart';
 import '../explore/historical_place_details_screen.dart';
 import '../explore/historical_places_screen.dart';
 import '../community/community_feed_screen.dart';
-import '../community/create_post_screen.dart';
 import '../tours/create_tour_screen.dart';
+import '../tours/tour_plan_generator_screen.dart';
 import '../tours/tour_details_screen.dart';
 
 void main() {
@@ -18,9 +21,7 @@ void main() {
       title: 'Ceylon Heritage',
       theme: ThemeData(
         useMaterial3: true,
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: const Color(0xFF9A4F2D),
-        ),
+        colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF9A4F2D)),
       ),
       home: const HeritageHomeScreen(),
     ),
@@ -136,9 +137,7 @@ class _HeritageHomeScreenState extends State<HeritageHomeScreen> {
     final route = _homeRoute;
     if (route == null || !route.isActive) return;
 
-    Navigator.of(context).popUntil(
-          (candidate) => identical(candidate, route),
-    );
+    Navigator.of(context).popUntil((candidate) => identical(candidate, route));
   }
 
   void _navigateFromChild(VoidCallback action) {
@@ -165,11 +164,11 @@ class _HeritageHomeScreenState extends State<HeritageHomeScreen> {
             final selectedPlaces = places
                 .map<Map<String, dynamic>>(
                   (place) => Map<String, dynamic>.from(place.toJson()),
-            )
+                )
                 .toList();
 
             _navigateFromChild(
-                  () => _openCreateTour(initialPlaces: selectedPlaces),
+              () => _openCreateTour(initialPlaces: selectedPlaces),
             );
           },
         ),
@@ -226,9 +225,9 @@ class _HeritageHomeScreenState extends State<HeritageHomeScreen> {
   }
 
   Future<void> _showSavedTour(
-      Map<String, dynamic> savedTour,
-      BuildContext createContext,
-      ) async {
+    Map<String, dynamic> savedTour,
+    BuildContext createContext,
+  ) async {
     if (!mounted || !createContext.mounted) return;
 
     final rawId = savedTour['id'];
@@ -281,6 +280,16 @@ class _HeritageHomeScreenState extends State<HeritageHomeScreen> {
     }
   }
 
+  void _openTourPlanner() {
+    if (!mounted) return;
+
+    Navigator.of(context).push<void>(
+      MaterialPageRoute<void>(
+        builder: (_) => TourPlanGeneratorScreen(onHome: _returnHome),
+      ),
+    );
+  }
+
   void _tours() {
     final callback = widget.onTours ?? widget.onCreateTour;
 
@@ -289,23 +298,6 @@ class _HeritageHomeScreenState extends State<HeritageHomeScreen> {
     } else {
       _openCreateTour();
     }
-  }
-
-  Future<void> _createPost() async {
-    if (!mounted) return;
-
-    final user = widget.user;
-
-    if (user == null) {
-      _message('Please sign in before creating a post.');
-      return;
-    }
-
-    await Navigator.of(context).push<bool>(
-      MaterialPageRoute<bool>(
-        builder: (_) => CreatePostScreen(user: user),
-      ),
-    );
   }
 
   void _community() {
@@ -323,7 +315,6 @@ class _HeritageHomeScreenState extends State<HeritageHomeScreen> {
           onHome: _returnHome,
           onExplore: () => _navigateFromChild(_explore),
           onTours: () => _navigateFromChild(_tours),
-          onCreatePost: _createPost,
           onPlaceSelected: (placeId) {
             _openCommunityPlace(placeId);
           },
@@ -337,11 +328,23 @@ class _HeritageHomeScreenState extends State<HeritageHomeScreen> {
   }
 
   void _profile() {
-    _message('Profile navigation is outside this component.');
+    final callback = widget.onProfile;
+
+    if (callback != null) {
+      callback();
+    } else {
+      _message('Profile navigation is outside this component.');
+    }
   }
 
   void _notifications() {
-    _message('Notifications navigation is outside this component.');
+    final callback = widget.onNotifications;
+
+    if (callback != null) {
+      callback();
+    } else {
+      _message('Notifications navigation is outside this component.');
+    }
   }
 
   void _search(String value) {
@@ -355,6 +358,32 @@ class _HeritageHomeScreenState extends State<HeritageHomeScreen> {
         .replaceAll('lankatilaka', 'lankathilaka')
         .replaceAll('ruwanwalisaya', 'ruwanwelisaya')
         .replaceAll(RegExp(r'[^a-z0-9]'), '');
+  }
+
+  String? _absoluteImageUrl(String? value) {
+    final clean = value?.trim();
+    if (clean == null || clean.isEmpty) return null;
+    if (clean.startsWith('http://') || clean.startsWith('https://')) {
+      return clean;
+    }
+    final baseUrl = ApiConfig.baseUrl.replaceFirst(RegExp(r'/+$'), '');
+    final path = clean.startsWith('/') ? clean : '/$clean';
+    return '$baseUrl$path';
+  }
+
+  String get _avatarInitial {
+    final user = widget.user;
+    if (user is UserProfile) {
+      final name = user.displayName.trim();
+      return name.isEmpty ? 'U' : name[0].toUpperCase();
+    }
+    return 'U';
+  }
+
+  String? get _profileImageUrl {
+    final user = widget.user;
+    if (user is UserProfile) return user.profileImageUrl;
+    return null;
   }
 
   Future<void> _openCommunityPlace(int placeId) async {
@@ -384,7 +413,7 @@ class _HeritageHomeScreenState extends State<HeritageHomeScreen> {
 
       _message(
         'Could not load this place. Check the backend connection '
-            'and try again.',
+        'and try again.',
       );
     }
   }
@@ -426,7 +455,7 @@ class _HeritageHomeScreenState extends State<HeritageHomeScreen> {
 
       _message(
         'Could not load this place. Check the backend connection '
-            'and try again.',
+        'and try again.',
       );
       return;
     }
@@ -527,6 +556,8 @@ class _HeritageHomeScreenState extends State<HeritageHomeScreen> {
                               children: [
                                 _searchBar(),
                                 const SizedBox(height: 16),
+                                _smartPlannerCard(),
+                                const SizedBox(height: 16),
                                 _quickActions(),
                                 const SizedBox(height: 24),
                                 _sectionHeader(
@@ -543,10 +574,7 @@ class _HeritageHomeScreenState extends State<HeritageHomeScreen> {
                                 const SizedBox(height: 6),
                                 const Text(
                                   'Discover places around Polonnaruwa',
-                                  style: TextStyle(
-                                    fontSize: 12,
-                                    color: _muted,
-                                  ),
+                                  style: TextStyle(fontSize: 12, color: _muted),
                                 ),
                                 const SizedBox(height: 12),
                                 _nearbyCards(),
@@ -597,22 +625,11 @@ class _HeritageHomeScreenState extends State<HeritageHomeScreen> {
             top: 14,
             child: Row(
               children: [
-                const Icon(Icons.spa, color: _accent, size: 34),
-                const SizedBox(width: 8),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        'CEYLON HERITAGE',
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: GoogleFonts.playfairDisplay(
-                          fontSize: 17,
-                          fontWeight: FontWeight.w700,
-                          color: _heading,
-                        ),
-                      ),
+                      HeritageLogo(),
                       const SizedBox(height: 3),
                       const Text(
                         'EXPLORE · DISCOVER · PRESERVE',
@@ -635,6 +652,8 @@ class _HeritageHomeScreenState extends State<HeritageHomeScreen> {
                   onPressed: _notifications,
                   icon: const Icon(Icons.notifications_none_outlined),
                 ),
+                const SizedBox(width: 8),
+                _profileAvatarButton(),
               ],
             ),
           ),
@@ -669,7 +688,7 @@ class _HeritageHomeScreenState extends State<HeritageHomeScreen> {
                   width: 200,
                   child: Text(
                     'Ancient cities, sacred places and\n'
-                        'stories that live forever.',
+                    'stories that live forever.',
                     style: TextStyle(
                       fontSize: 11,
                       height: 1.4,
@@ -688,10 +707,7 @@ class _HeritageHomeScreenState extends State<HeritageHomeScreen> {
                   child: const Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Text(
-                        'Start Exploring',
-                        style: TextStyle(fontSize: 11),
-                      ),
+                      Text('Start Exploring', style: TextStyle(fontSize: 11)),
                       SizedBox(width: 10),
                       Icon(Icons.arrow_forward, size: 17),
                     ],
@@ -701,6 +717,45 @@ class _HeritageHomeScreenState extends State<HeritageHomeScreen> {
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _profileAvatarButton() {
+    const size = 40.0;
+    final imageUrl = _absoluteImageUrl(_profileImageUrl);
+
+    return Material(
+      shape: const CircleBorder(),
+      color: Colors.white,
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: _profile,
+        customBorder: const CircleBorder(),
+        child: SizedBox(
+          width: size,
+          height: size,
+          child: imageUrl == null
+              ? _profileInitial()
+              : Image.network(
+                  imageUrl,
+                  fit: BoxFit.cover,
+                  errorBuilder: (_, _, _) => _profileInitial(),
+                ),
+        ),
+      ),
+    );
+  }
+
+  Widget _profileInitial() {
+    return Center(
+      child: Text(
+        _avatarInitial,
+        style: const TextStyle(
+          color: _primary,
+          fontSize: 16,
+          fontWeight: FontWeight.w800,
+        ),
       ),
     );
   }
@@ -753,12 +808,97 @@ class _HeritageHomeScreenState extends State<HeritageHomeScreen> {
             backgroundColor: const Color(0xFFF0F1F5),
             foregroundColor: const Color(0xFF667B99),
           ),
-          onPressed: () => _openExplore(
-            keyword: _searchController.text.trim(),
-          ),
+          onPressed: () => _openExplore(keyword: _searchController.text.trim()),
           icon: const Icon(Icons.tune),
         ),
       ],
+    );
+  }
+
+  Widget _smartPlannerCard() {
+    return Material(
+      color: const Color(0xFFFAEDE6),
+      borderRadius: BorderRadius.circular(16),
+      child: InkWell(
+        onTap: _openTourPlanner,
+        borderRadius: BorderRadius.circular(16),
+        child: Container(
+          padding: const EdgeInsets.all(15),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: const Color(0xFFEADFD5)),
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 48,
+                height: 48,
+                decoration: BoxDecoration(
+                  color: _primary,
+                  borderRadius: BorderRadius.circular(13),
+                ),
+                child: const Icon(
+                  Icons.travel_explore_rounded,
+                  color: Colors.white,
+                  size: 26,
+                ),
+              ),
+              const SizedBox(width: 13),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Flexible(
+                          child: Text(
+                            'Smart Tour Planner',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: GoogleFonts.playfairDisplay(
+                              fontSize: 18,
+                              fontWeight: FontWeight.w800,
+                              color: _heading,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 6),
+                        const Icon(
+                          Icons.auto_awesome_rounded,
+                          color: Color(0xFFC96F4A),
+                          size: 17,
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 5),
+                    const Text(
+                      'Generate a budget-friendly Sri Lanka route.',
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: 11,
+                        height: 1.35,
+                        color: _muted,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 10),
+              const CircleAvatar(
+                radius: 18,
+                backgroundColor: Colors.white,
+                child: Icon(
+                  Icons.arrow_forward_rounded,
+                  color: _primary,
+                  size: 20,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 
@@ -799,12 +939,12 @@ class _HeritageHomeScreenState extends State<HeritageHomeScreen> {
   }
 
   Widget _quickAction(
-      String label,
-      IconData icon,
-      Color circleColor,
-      Color iconColor,
-      VoidCallback onTap,
-      ) {
+    String label,
+    IconData icon,
+    Color circleColor,
+    Color iconColor,
+    VoidCallback onTap,
+  ) {
     return Material(
       color: const Color(0xFFFAF7F4),
       borderRadius: BorderRadius.circular(12),
@@ -828,10 +968,7 @@ class _HeritageHomeScreenState extends State<HeritageHomeScreen> {
                   child: Text(
                     label,
                     textAlign: TextAlign.center,
-                    style: const TextStyle(
-                      fontSize: 11,
-                      color: _heading,
-                    ),
+                    style: const TextStyle(fontSize: 11, color: _heading),
                   ),
                 ),
               ),
@@ -862,10 +999,7 @@ class _HeritageHomeScreenState extends State<HeritageHomeScreen> {
             padding: const EdgeInsets.symmetric(horizontal: 4),
             minimumSize: const Size(50, 36),
           ),
-          child: const Text(
-            'See All →',
-            style: TextStyle(fontSize: 11),
-          ),
+          child: const Text('See All →', style: TextStyle(fontSize: 11)),
         ),
       ],
     );
@@ -891,10 +1025,7 @@ class _HeritageHomeScreenState extends State<HeritageHomeScreen> {
         itemCount: _nearby.length,
         separatorBuilder: (context, index) => const SizedBox(width: 10),
         itemBuilder: (context, index) {
-          return SizedBox(
-            width: 130,
-            child: _placeCard(_nearby[index]),
-          );
+          return SizedBox(width: 130, child: _placeCard(_nearby[index]));
         },
       ),
     );
@@ -939,21 +1070,14 @@ class _HeritageHomeScreenState extends State<HeritageHomeScreen> {
                   const SizedBox(height: 6),
                   Row(
                     children: [
-                      const Icon(
-                        Icons.location_on,
-                        color: _accent,
-                        size: 13,
-                      ),
+                      const Icon(Icons.location_on, color: _accent, size: 13),
                       const SizedBox(width: 3),
                       Expanded(
                         child: Text(
                           place.city,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            color: _muted,
-                            fontSize: 11,
-                          ),
+                          style: const TextStyle(color: _muted, fontSize: 11),
                         ),
                       ),
                     ],
@@ -995,10 +1119,7 @@ class _HeritageHomeScreenState extends State<HeritageHomeScreen> {
                     const SizedBox(height: 4),
                     const Text(
                       'Select places and create your own tour.',
-                      style: TextStyle(
-                        fontSize: 11,
-                        color: _muted,
-                      ),
+                      style: TextStyle(fontSize: 11, color: _muted),
                     ),
                   ],
                 ),
@@ -1007,11 +1128,7 @@ class _HeritageHomeScreenState extends State<HeritageHomeScreen> {
               const CircleAvatar(
                 radius: 19,
                 backgroundColor: _primary,
-                child: Icon(
-                  Icons.arrow_forward,
-                  color: Colors.white,
-                  size: 20,
-                ),
+                child: Icon(Icons.arrow_forward, color: Colors.white, size: 20),
               ),
             ],
           ),
@@ -1024,9 +1141,7 @@ class _HeritageHomeScreenState extends State<HeritageHomeScreen> {
     return DecoratedBox(
       decoration: const BoxDecoration(
         color: Colors.white,
-        border: Border(
-          top: BorderSide(color: Color(0xFFEAE5DF)),
-        ),
+        border: Border(top: BorderSide(color: Color(0xFFEAE5DF))),
       ),
       child: SafeArea(
         top: false,
@@ -1047,11 +1162,11 @@ class _HeritageHomeScreenState extends State<HeritageHomeScreen> {
   }
 
   Widget _navItem(
-      String label,
-      IconData icon,
-      bool selected,
-      VoidCallback onTap,
-      ) {
+    String label,
+    IconData icon,
+    bool selected,
+    VoidCallback onTap,
+  ) {
     final color = selected ? _accent : const Color(0xFF667B99);
 
     return Expanded(

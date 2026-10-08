@@ -224,6 +224,8 @@ public class HistoricalPlaceServiceImpl
         dto.setName(place.getName());
         dto.setCity(place.getCity());
         dto.setCategory(place.getCategory());
+        dto.setClimateType(place.getClimateType());
+        dto.setTravelTags(place.getTravelTags());
         dto.setDescription(place.getDescription());
         dto.setImageUrl(place.getImageUrl());
         dto.setGalleryImages(

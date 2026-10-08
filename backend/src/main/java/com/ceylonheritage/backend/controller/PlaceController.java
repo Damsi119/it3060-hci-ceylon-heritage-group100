@@ -16,7 +16,7 @@ import org.springframework.web.bind.annotation.RestController;
 import java.util.List;
 
 @RestController
-@RequestMapping("/api/places")
+@RequestMapping("/api/tourism/places")
 public class PlaceController {
 
     private final TourismService tourismService;

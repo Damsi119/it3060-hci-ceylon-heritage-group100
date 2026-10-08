@@ -8,7 +8,8 @@ class ApiConfig {
 
   static const String googleServerClientId = String.fromEnvironment(
     'GOOGLE_SERVER_CLIENT_ID',
-    defaultValue: '',
+    defaultValue:
+        '668109690310-q3cmtd9olaptsnp7q8snphdqemcrncis.apps.googleusercontent.com',
   );
 
   static const String googlePlacesApiKey = String.fromEnvironment(

@@ -56,6 +56,12 @@ public class User implements UserDetails {
 
     private String address;
 
+    @Column(length = 512)
+    private String profileImageUrl;
+
+    @Column(length = 512)
+    private String coverImageUrl;
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
     private Role role;

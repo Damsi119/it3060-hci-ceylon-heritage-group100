@@ -7,7 +7,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
@@ -29,6 +29,18 @@ public class GuideRequestController {
 
         return ResponseEntity.ok(
                 guideService.submitGuideRequest(request)
+        );
+    }
+
+
+    @GetMapping("/api/guide-requests/status")
+    public ResponseEntity<GuideDto.GuideProfileResponse> getGuideRequestStatus(
+            @RequestParam String email,
+            @RequestParam String phone
+    ) {
+
+        return ResponseEntity.ok(
+                guideService.getGuideRequestStatus(email, phone)
         );
     }
 

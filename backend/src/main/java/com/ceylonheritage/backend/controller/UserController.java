@@ -4,9 +4,11 @@ package com.ceylonheritage.backend.controller;
 import com.ceylonheritage.backend.Dtos.UserDto;
 import com.ceylonheritage.backend.service.UserService;
 import jakarta.validation.Valid;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 @RestController
 @RequestMapping("/api/users")
@@ -42,6 +44,42 @@ public class UserController {
                 userService.updateProfile(
                         authentication.getName(),
                         request
+                )
+        );
+    }
+
+
+    @PutMapping(
+            value = "/me/profile-photo",
+            consumes = MediaType.MULTIPART_FORM_DATA_VALUE
+    )
+    public ResponseEntity<UserDto.UserProfileResponse> updateProfilePhoto(
+            Authentication authentication,
+            @RequestPart("photo") MultipartFile photo
+    ) {
+
+        return ResponseEntity.ok(
+                userService.updateProfilePhoto(
+                        authentication.getName(),
+                        photo
+                )
+        );
+    }
+
+
+    @PutMapping(
+            value = "/me/cover-photo",
+            consumes = MediaType.MULTIPART_FORM_DATA_VALUE
+    )
+    public ResponseEntity<UserDto.UserProfileResponse> updateCoverPhoto(
+            Authentication authentication,
+            @RequestPart("photo") MultipartFile photo
+    ) {
+
+        return ResponseEntity.ok(
+                userService.updateCoverPhoto(
+                        authentication.getName(),
+                        photo
                 )
         );
     }

@@ -29,6 +29,12 @@ public class HistoricalPlace {
     @Column(length = 50)
     private String category;
 
+    @Column(length = 60)
+    private String climateType;
+
+    @Column(length = 400)
+    private String travelTags;
+
     @Column(nullable = false, columnDefinition = "TEXT")
     private String description;
 

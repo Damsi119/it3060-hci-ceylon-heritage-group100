@@ -31,7 +31,8 @@ class TourismService {
 
     const bounds = '5.8,79.4,10.1,82.1';
     final escaped = RegExp.escape(term);
-    final query = '''[out:json][timeout:25];
+    final query =
+        '''[out:json][timeout:25];
 (
   nwr["name"~"${escaped}",i]($bounds);
   nwr["name:en"~"${escaped}",i]($bounds);
@@ -70,8 +71,7 @@ out center tags;''';
         _ when tags['boundary'] == 'administrative' => 4,
         _ => 5,
       };
-      final priority =
-          (normalizedName == cacheKey ? 0 : 10) + placePriority;
+      final priority = (normalizedName == cacheKey ? 0 : 10) + placePriority;
       candidates.add((
         priority: priority,
         lat: coordinates.$1,
@@ -91,11 +91,13 @@ out center tags;''';
     required double longitude,
     int radiusMeters = 5000,
   }) async {
-    final key = '${latitude.toStringAsFixed(3)},${longitude.toStringAsFixed(3)},$radiusMeters';
+    final key =
+        '${latitude.toStringAsFixed(3)},${longitude.toStringAsFixed(3)},$radiusMeters';
     if (_nearbyOsmCache.containsKey(key)) {
       return List<TourismPlace>.of(_nearbyOsmCache[key]!);
     }
-    final query = '''[out:json][timeout:35];
+    final query =
+        '''[out:json][timeout:35];
 (
   nwr(around:$radiusMeters,$latitude,$longitude)["historic"];
   nwr(around:$radiusMeters,$latitude,$longitude)["tourism"~"attraction|museum|artwork|viewpoint|hotel|guest_house|hostel"];
@@ -108,7 +110,9 @@ out center tags;''';
     return List<TourismPlace>.of(places);
   }
 
-  Future<List<TourismPlace>> getSriLankaPlaces({String category = 'All'}) async {
+  Future<List<TourismPlace>> getSriLankaPlaces({
+    String category = 'All',
+  }) async {
     try {
       _sriLankaOsmCache ??= await _loadSriLankaOsmPlaces();
       final selected = category == 'All' ? null : _categoryValue(category);
@@ -128,7 +132,8 @@ out center tags;''';
 
   Future<List<TourismPlace>> _loadSriLankaOsmPlaces() async {
     const bounds = '5.8,79.4,10.1,82.1';
-    const query = '''[out:json][timeout:60];
+    const query =
+        '''[out:json][timeout:60];
 (
   nwr["historic"]($bounds);
   nwr["tourism"~"attraction|museum|artwork|viewpoint|hotel|guest_house|hostel"]($bounds);
@@ -160,7 +165,10 @@ out center tags;''';
       final coordinates = _osmCoordinates(raw);
       final category = _osmCategory(tags);
       final osmId = (raw['id'] as num?)?.toInt();
-      if (name.isEmpty || coordinates == null || category == null || osmId == null) {
+      if (name.isEmpty ||
+          coordinates == null ||
+          category == null ||
+          osmId == null) {
         continue;
       }
       final type = raw['type']?.toString() ?? 'place';
@@ -169,15 +177,23 @@ out center tags;''';
         slug: 'osm-$type-$osmId',
         name: name,
         category: category,
-        description: (tags['description'] ?? tags['historic'] ??
-                tags['tourism'] ?? tags['amenity'] ?? tags['shop'] ??
-                'OpenStreetMap place in Sri Lanka')
-            .toString(),
+        description:
+            (tags['description'] ??
+                    tags['historic'] ??
+                    tags['tourism'] ??
+                    tags['amenity'] ??
+                    tags['shop'] ??
+                    'OpenStreetMap place in Sri Lanka')
+                .toString(),
         address: _osmAddress(tags),
-        city: (tags['addr:city'] ?? tags['addr:town'] ??
-                tags['addr:village'] ?? 'Sri Lanka')
+        city:
+            (tags['addr:city'] ??
+                    tags['addr:town'] ??
+                    tags['addr:village'] ??
+                    'Sri Lanka')
+                .toString(),
+        province: (tags['addr:state'] ?? tags['addr:province'] ?? '')
             .toString(),
-        province: (tags['addr:state'] ?? tags['addr:province'] ?? '').toString(),
         rating: 0,
         reviewCount: 0,
         distanceMeters: 0,
@@ -223,7 +239,9 @@ out center tags;''';
       }
     }
 
-    final commons = (tags['wikimedia_commons'] ?? tags['image'])?.toString().trim();
+    final commons = (tags['wikimedia_commons'] ?? tags['image'])
+        ?.toString()
+        .trim();
     if (commons == null || !commons.startsWith('File:')) return null;
     return _commonsFileUrl(commons.substring('File:'.length).trim());
   }
@@ -240,11 +258,17 @@ out center tags;''';
   String? _osmCategory(Map<String, dynamic> tags) {
     if (tags.containsKey('shop')) return 'SHOPS';
     final amenity = tags['amenity']?.toString();
-    if (const {'restaurant', 'cafe', 'fast_food', 'food_court'}.contains(amenity)) {
+    if (const {
+      'restaurant',
+      'cafe',
+      'fast_food',
+      'food_court',
+    }.contains(amenity)) {
       return 'RESTAURANTS';
     }
     final tourism = tags['tourism']?.toString();
-    if (const {'hotel', 'guest_house', 'hostel'}.contains(tourism)) return 'HOTELS';
+    if (const {'hotel', 'guest_house', 'hostel'}.contains(tourism))
+      return 'HOTELS';
     if (tourism == 'museum') return 'MUSEUM';
     if (tags.containsKey('historic') ||
         const {'attraction', 'artwork', 'viewpoint'}.contains(tourism)) {
@@ -254,10 +278,11 @@ out center tags;''';
   }
 
   String _osmAddress(Map<String, dynamic> tags) {
-    final parts = [tags['addr:housenumber'], tags['addr:street'], tags['addr:suburb']]
-        .whereType<String>()
-        .where((part) => part.trim().isNotEmpty)
-        .toList();
+    final parts = [
+      tags['addr:housenumber'],
+      tags['addr:street'],
+      tags['addr:suburb'],
+    ].whereType<String>().where((part) => part.trim().isNotEmpty).toList();
     return parts.isEmpty ? 'Sri Lanka' : parts.join(', ');
   }
 
@@ -283,7 +308,7 @@ out center tags;''';
     final suffix = query.isEmpty ? '' : '?${Uri(queryParameters: query).query}';
     try {
       final places = _places(
-        await _api.get('/api/places$suffix', authenticated: false),
+        await _api.get('/api/tourism/places$suffix', authenticated: false),
       );
       return places;
     } catch (_) {
@@ -293,9 +318,10 @@ out center tags;''';
           : _categoryValue(category);
       final normalizedSearch = search?.trim().toLowerCase() ?? '';
       return _samplePlaces.where((place) {
-        final categoryMatches = normalizedCategory == null ||
-            place.category == normalizedCategory;
-        final searchMatches = normalizedSearch.isEmpty ||
+        final categoryMatches =
+            normalizedCategory == null || place.category == normalizedCategory;
+        final searchMatches =
+            normalizedSearch.isEmpty ||
             '${place.name} ${place.category} ${place.city}'
                 .toLowerCase()
                 .contains(normalizedSearch);
@@ -305,7 +331,7 @@ out center tags;''';
   }
 
   Future<TourismPlace> getPlace(int id) async => TourismPlace.fromJson(
-    await _api.get('/api/places/$id', authenticated: false)
+    await _api.get('/api/tourism/places/$id', authenticated: false)
         as Map<String, dynamic>,
   );
 
@@ -313,7 +339,7 @@ out center tags;''';
     try {
       return _places(
         await _api.get(
-          '/api/places/recommended?sort=${Uri.encodeQueryComponent(sort)}',
+          '/api/tourism/places/recommended?sort=${Uri.encodeQueryComponent(sort)}',
           authenticated: false,
         ),
       );
@@ -337,7 +363,7 @@ out center tags;''';
     try {
       final response =
           await _api.get(
-                '/api/places/$placeId/reviews?sort=${Uri.encodeQueryComponent(sort)}',
+                '/api/tourism/places/$placeId/reviews?sort=${Uri.encodeQueryComponent(sort)}',
                 authenticated: false,
               )
               as List<dynamic>;
@@ -370,7 +396,10 @@ out center tags;''';
 
   Future<PlaceRatingSummary> getRatingSummary(int placeId) async =>
       PlaceRatingSummary.fromJson(
-        await _api.get('/api/places/$placeId/ratings', authenticated: false)
+        await _api.get(
+              '/api/tourism/places/$placeId/ratings',
+              authenticated: false,
+            )
             as Map<String, dynamic>,
       );
 
@@ -382,7 +411,7 @@ out center tags;''';
     try {
       final review = PlaceReview.fromJson(
         await _api.post(
-              '/api/places/$placeId/reviews',
+              '/api/tourism/places/$placeId/reviews',
               body: {'rating': rating, 'comment': comment},
             )
             as Map<String, dynamic>,
@@ -434,10 +463,7 @@ out center tags;''';
     }
   }
 
-  Future<TourismPlace> addFavorite(
-    int placeId, {
-    TourismPlace? place,
-  }) async {
+  Future<TourismPlace> addFavorite(int placeId, {TourismPlace? place}) async {
     try {
       final result = TourismPlace.fromJson(
         await _api.put('/api/users/me/favourites/$placeId')
@@ -669,7 +695,8 @@ out center tags;''';
       slug: 'national-museum-colombo',
       name: 'National Museum, Colombo',
       category: 'MUSEUM',
-      description: 'Explore Sri Lankan history, archaeology, and cultural artifacts.',
+      description:
+          'Explore Sri Lankan history, archaeology, and cultural artifacts.',
       address: 'Sir Marcus Fernando Mawatha',
       city: 'Colombo',
       province: 'Western Province',

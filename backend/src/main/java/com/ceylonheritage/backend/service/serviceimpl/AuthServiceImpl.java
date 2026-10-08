@@ -13,6 +13,7 @@ import com.ceylonheritage.backend.service.EmailService;
 import com.ceylonheritage.backend.utils.OtpUtil;
 import com.ceylonheritage.backend.utils.TokenHashUtil;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.mail.MailException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -71,19 +72,31 @@ public class AuthServiceImpl implements AuthService {
             );
         }
 
+        User existingEmailUser = userRepository
+                .findByEmailIgnoreCaseAndDeletedFalse(email)
+                .orElse(null);
+
+        if (existingEmailUser != null) {
+            if (existingEmailUser.isEmailVerified()) {
+                throw new UserException(
+                        "Email already exists"
+                );
+            }
+
+            if (existingEmailUser.getProvider() == AuthProvider.GOOGLE) {
+                throw new UserException(
+                        "This email is linked with Google. Use Google sign in."
+                );
+            }
+
+            return refreshRegistrationOtp(existingEmailUser);
+        }
+
         if (userRepository
                 .existsByUsernameIgnoreCaseAndDeletedFalse(username)) {
 
             throw new UserException(
                     "Username already exists"
-            );
-        }
-
-        if (userRepository
-                .existsByEmailIgnoreCaseAndDeletedFalse(email)) {
-
-            throw new UserException(
-                    "Email already exists"
             );
         }
 
@@ -123,17 +136,85 @@ public class AuthServiceImpl implements AuthService {
 
         userRepository.save(user);
 
-        if (emailVerificationRequired) {
-            emailService.sendVerificationCode(user.getEmail(), otp);
+        if (!emailVerificationRequired) {
+            return new UserDto.MessageResponse(
+                    true,
+                    "Registration successful. You can now sign in.",
+                    false
+            );
         }
 
-        return new UserDto.MessageResponse(
-                true,
-                emailVerificationRequired
-                        ? "Registration successful. Check your email for the verification code."
-                        : "Registration successful. You can now sign in.",
-                emailVerificationRequired
+        return sendVerificationCodeSafely(
+                user.getEmail(),
+                otp,
+                "Registration successful. Check your email for the verification code."
         );
+    }
+
+    private UserDto.MessageResponse refreshRegistrationOtp(User user) {
+        if (!emailVerificationRequired) {
+            user.setEmailVerified(true);
+            user.setVerifyCode(null);
+            user.setVerifyCodeExpiry(null);
+            user.setLastOtpSentAt(null);
+            user.setOtpResendCount(0);
+            user.setOtpFirstResendTime(null);
+            user.setOtpBlockUntil(null);
+
+            userRepository.save(user);
+
+            return new UserDto.MessageResponse(
+                    true,
+                    "Registration successful. You can now sign in.",
+                    false
+            );
+        }
+
+        String otp = OtpUtil.generateOtp();
+        LocalDateTime now = LocalDateTime.now();
+
+        user.setVerifyCode(otp);
+        user.setVerifyCodeExpiry(
+                now.plusMinutes(5)
+        );
+        user.setLastOtpSentAt(now);
+        user.setOtpResendCount(0);
+        user.setOtpFirstResendTime(null);
+        user.setOtpBlockUntil(null);
+
+        userRepository.save(user);
+
+        return sendVerificationCodeSafely(
+                user.getEmail(),
+                otp,
+                "This email is already registered but not verified. A new verification code was sent."
+        );
+    }
+
+    private UserDto.MessageResponse sendVerificationCodeSafely(
+            String email,
+            String otp,
+            String successMessage
+    ) {
+        try {
+            emailService.sendVerificationCode(
+                    email,
+                    otp
+            );
+
+            return new UserDto.MessageResponse(
+                    true,
+                    successMessage,
+                    true
+            );
+
+        } catch (MailException exception) {
+            return new UserDto.MessageResponse(
+                    true,
+                    "Account created, but the email could not be sent. Check mail settings and use Resend code.",
+                    true
+            );
+        }
     }
 
 
@@ -621,6 +702,8 @@ public class AuthServiceImpl implements AuthService {
                 user.getFirstName(),
                 user.getLastName(),
                 user.getAddress(),
+                user.getProfileImageUrl(),
+                user.getCoverImageUrl(),
                 user.getRole(),
                 user.getProvider(),
                 user.isEmailVerified(),
