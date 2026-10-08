@@ -6,10 +6,12 @@ import com.ceylonheritage.backend.enums.Role;
 import com.ceylonheritage.backend.exception.UserException;
 import com.ceylonheritage.backend.repository.ForgotPasswordRepository;
 import com.ceylonheritage.backend.repository.UserRepository;
+import com.ceylonheritage.backend.service.ProfileImageStorageService;
 import com.ceylonheritage.backend.service.UserService;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -21,15 +23,18 @@ public class UserServiceImpl implements UserService {
     private final UserRepository userRepository;
     private final ForgotPasswordRepository forgotPasswordRepository;
     private final PasswordEncoder passwordEncoder;
+    private final ProfileImageStorageService profileImageStorageService;
 
     public UserServiceImpl(
             UserRepository userRepository,
             ForgotPasswordRepository forgotPasswordRepository,
-            PasswordEncoder passwordEncoder
+            PasswordEncoder passwordEncoder,
+            ProfileImageStorageService profileImageStorageService
     ) {
         this.userRepository = userRepository;
         this.forgotPasswordRepository = forgotPasswordRepository;
         this.passwordEncoder = passwordEncoder;
+        this.profileImageStorageService = profileImageStorageService;
     }
 
 
@@ -85,6 +90,50 @@ public class UserServiceImpl implements UserService {
         }
 
         userRepository.save(user);
+
+        return toProfileResponse(user);
+    }
+
+
+    @Override
+    @Transactional
+    public UserDto.UserProfileResponse updateProfilePhoto(
+            String username,
+            MultipartFile photo
+    ) {
+
+        User user = getUser(username);
+        String previousImageUrl = user.getProfileImageUrl();
+        String imageUrl = profileImageStorageService.saveImage(
+                photo,
+                "profile"
+        );
+
+        user.setProfileImageUrl(imageUrl);
+        userRepository.save(user);
+        profileImageStorageService.deleteImage(previousImageUrl);
+
+        return toProfileResponse(user);
+    }
+
+
+    @Override
+    @Transactional
+    public UserDto.UserProfileResponse updateCoverPhoto(
+            String username,
+            MultipartFile photo
+    ) {
+
+        User user = getUser(username);
+        String previousImageUrl = user.getCoverImageUrl();
+        String imageUrl = profileImageStorageService.saveImage(
+                photo,
+                "cover"
+        );
+
+        user.setCoverImageUrl(imageUrl);
+        userRepository.save(user);
+        profileImageStorageService.deleteImage(previousImageUrl);
 
         return toProfileResponse(user);
     }
@@ -185,9 +234,14 @@ public class UserServiceImpl implements UserService {
 
         forgotPasswordRepository.deleteByUserId(userId);
 
+        String previousProfileImageUrl = user.getProfileImageUrl();
+        String previousCoverImageUrl = user.getCoverImageUrl();
+
         user.setFirstName(null);
         user.setLastName(null);
         user.setAddress(null);
+        user.setProfileImageUrl(null);
+        user.setCoverImageUrl(null);
 
         user.setUsername(
                 "deleted_" + userId
@@ -225,6 +279,8 @@ public class UserServiceImpl implements UserService {
         user.setPasswordChangeRequired(false);
 
         userRepository.save(user);
+        profileImageStorageService.deleteImage(previousProfileImageUrl);
+        profileImageStorageService.deleteImage(previousCoverImageUrl);
 
         return new UserDto.MessageResponse(
                 true,
@@ -318,6 +374,8 @@ public class UserServiceImpl implements UserService {
                 user.getFirstName(),
                 user.getLastName(),
                 user.getAddress(),
+                user.getProfileImageUrl(),
+                user.getCoverImageUrl(),
                 user.getRole(),
                 user.getProvider(),
                 user.isEmailVerified(),
@@ -342,9 +400,14 @@ public class UserServiceImpl implements UserService {
 
         forgotPasswordRepository.deleteByUserId(userId);
 
+        String previousProfileImageUrl = user.getProfileImageUrl();
+        String previousCoverImageUrl = user.getCoverImageUrl();
+
         user.setFirstName(null);
         user.setLastName(null);
         user.setAddress(null);
+        user.setProfileImageUrl(null);
+        user.setCoverImageUrl(null);
         user.setUsername("deleted_" + userId);
         user.setEmail("deleted_" + userId + "@historia.local");
         user.setPhone("deleted_" + userId);
@@ -368,6 +431,8 @@ public class UserServiceImpl implements UserService {
         user.setPasswordChangeRequired(false);
 
         userRepository.save(user);
+        profileImageStorageService.deleteImage(previousProfileImageUrl);
+        profileImageStorageService.deleteImage(previousCoverImageUrl);
     }
 }
 

@@ -193,6 +193,10 @@ public class UserDto {
 
             String address,
 
+            String profileImageUrl,
+
+            String coverImageUrl,
+
             Role role,
 
             AuthProvider provider,

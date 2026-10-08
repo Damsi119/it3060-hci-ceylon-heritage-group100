@@ -1,6 +1,8 @@
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../../core/constants/api_config.dart';
 import '../../core/theme/app_colors.dart';
 import '../../models/user_profile.dart';
 import '../../services/api_client.dart';
@@ -41,6 +43,10 @@ class ProfileScreen extends StatefulWidget {
 
 class _ProfileScreenState extends State<ProfileScreen> {
   late UserProfile _user;
+  bool _uploadingProfilePhoto = false;
+  bool _uploadingCoverPhoto = false;
+
+  static const int _maxImageBytes = 5 * 1024 * 1024;
 
   @override
   void initState() {
@@ -174,13 +180,151 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  void _photoInfo() {
-    // UserProfile in the supplied project doesn't expose image URLs or
-    // upload methods, so this button is intentionally not a fake upload.
-    showHeritageMessage(
-      context,
-      'Connect a profile photo upload API to enable changing your picture.',
-    );
+  Future<_PickedProfileImage?> _pickImage() async {
+    try {
+      final file = await FilePicker.pickFile(
+        type: FileType.custom,
+        allowedExtensions: const ['jpg', 'jpeg', 'png'],
+      );
+
+      if (file == null) return null;
+
+      final length = await file.length();
+      if (length > _maxImageBytes) {
+        if (mounted) {
+          showHeritageMessage(
+            context,
+            'Photo must be 5 MB or smaller.',
+            error: true,
+          );
+        }
+        return null;
+      }
+
+      final bytes = await file.readAsBytes();
+      if (bytes.isEmpty || bytes.length > _maxImageBytes) {
+        if (mounted) {
+          showHeritageMessage(
+            context,
+            'Could not read that photo.',
+            error: true,
+          );
+        }
+        return null;
+      }
+
+      final isPng =
+          bytes.length >= 8 &&
+          bytes[0] == 0x89 &&
+          bytes[1] == 0x50 &&
+          bytes[2] == 0x4E &&
+          bytes[3] == 0x47 &&
+          bytes[4] == 0x0D &&
+          bytes[5] == 0x0A &&
+          bytes[6] == 0x1A &&
+          bytes[7] == 0x0A;
+
+      final isJpeg =
+          bytes.length >= 3 &&
+          bytes[0] == 0xFF &&
+          bytes[1] == 0xD8 &&
+          bytes[2] == 0xFF;
+
+      if (!isPng && !isJpeg) {
+        if (mounted) {
+          showHeritageMessage(
+            context,
+            'Select a JPG or PNG photo.',
+            error: true,
+          );
+        }
+        return null;
+      }
+
+      return _PickedProfileImage(
+        bytes: bytes,
+        extension: isPng ? 'png' : 'jpg',
+        subtype: isPng ? 'png' : 'jpeg',
+      );
+    } catch (_) {
+      if (mounted) {
+        showHeritageMessage(
+          context,
+          'Could not select a photo. Please try again.',
+          error: true,
+        );
+      }
+      return null;
+    }
+  }
+
+  Future<void> _changeProfilePhoto() async {
+    if (_uploadingProfilePhoto) return;
+
+    final image = await _pickImage();
+    if (image == null || !mounted) return;
+
+    setState(() => _uploadingProfilePhoto = true);
+    try {
+      final updated = await UserService.instance.updateProfilePhoto(
+        bytes: image.bytes,
+        filename: 'profile_photo.${image.extension}',
+        subtype: image.subtype,
+      );
+      if (!mounted) return;
+      setState(() => _user = updated);
+      showHeritageMessage(context, 'Profile photo updated.');
+    } on ApiException catch (e) {
+      if (mounted) showHeritageMessage(context, e.message, error: true);
+    } catch (_) {
+      if (mounted) {
+        showHeritageMessage(
+          context,
+          'Profile photo upload failed.',
+          error: true,
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _uploadingProfilePhoto = false);
+    }
+  }
+
+  Future<void> _changeCoverPhoto() async {
+    if (_uploadingCoverPhoto) return;
+
+    final image = await _pickImage();
+    if (image == null || !mounted) return;
+
+    setState(() => _uploadingCoverPhoto = true);
+    try {
+      final updated = await UserService.instance.updateCoverPhoto(
+        bytes: image.bytes,
+        filename: 'cover_photo.${image.extension}',
+        subtype: image.subtype,
+      );
+      if (!mounted) return;
+      setState(() => _user = updated);
+      showHeritageMessage(context, 'Cover photo updated.');
+    } on ApiException catch (e) {
+      if (mounted) showHeritageMessage(context, e.message, error: true);
+    } catch (_) {
+      if (mounted) {
+        showHeritageMessage(context, 'Cover photo upload failed.', error: true);
+      }
+    } finally {
+      if (mounted) setState(() => _uploadingCoverPhoto = false);
+    }
+  }
+
+  String? _absoluteImageUrl(String? value) {
+    final clean = value?.trim();
+    if (clean == null || clean.isEmpty) return null;
+    if (clean.startsWith('http://') || clean.startsWith('https://')) {
+      return clean;
+    }
+    final baseUrl = ApiConfig.baseUrl.replaceFirst(RegExp(r'/+$'), '');
+    final path = clean.startsWith('/') ? clean : '/$clean';
+    return '$baseUrl$path';
   }
 
   String get _initial {
@@ -301,41 +445,19 @@ class _ProfileScreenState extends State<ProfileScreen> {
               child: Stack(
                 fit: StackFit.expand,
                 children: [
-                  Image.asset(
-                    'assets/images/heritage_login_banner.webp',
-                    fit: BoxFit.cover,
-                    alignment: const Alignment(0.25, 0),
-                    errorBuilder: (_, _, _) => const DecoratedBox(
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                          colors: [
-                            Color(0xFFCBDEF0),
-                            Color(0xFFFFD3A1),
-                            Color(0xFF985023),
-                          ],
-                        ),
-                      ),
-                      child: Center(
-                        child: Icon(
-                          Icons.landscape_rounded,
-                          size: 90,
-                          color: Color(0x66FFFFFF),
-                        ),
-                      ),
-                    ),
-                  ),
+                  _buildCoverImage(),
                   const DecoratedBox(
                     decoration: BoxDecoration(
                       gradient: LinearGradient(
                         begin: Alignment.topCenter,
                         end: Alignment.bottomCenter,
                         colors: [
-                          Color(0x44FFFFFF),
-                          Color(0x00FFFFFF),
-                          Color(0x44713C1A),
+                          Color(0xEAFDF7F1),
+                          Color(0x88FDF7F1),
+                          Color(0x11713C1A),
+                          Color(0x66713C1A),
                         ],
+                        stops: [0, 0.22, 0.58, 1],
                       ),
                     ),
                   ),
@@ -381,16 +503,30 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     borderRadius: BorderRadius.circular(14),
                   ),
                   onSelected: (value) {
+                    if (value == 'cover') _changeCoverPhoto();
                     if (value == 'refresh') _reload();
                     if (value == 'edit') _editProfile();
                   },
                   itemBuilder: (_) => const [
                     PopupMenuItem(value: 'edit', child: Text('Edit profile')),
+                    PopupMenuItem(
+                      value: 'cover',
+                      child: Text('Change cover photo'),
+                    ),
                     PopupMenuItem(value: 'refresh', child: Text('Refresh')),
                   ],
                   child: const _HeaderRoundIcon(icon: Icons.more_vert_rounded),
                 ),
               ],
+            ),
+          ),
+          Positioned(
+            top: top + 188,
+            right: 18,
+            child: _HeaderRoundButton(
+              icon: Icons.add_photo_alternate_outlined,
+              onTap: _changeCoverPhoto,
+              loading: _uploadingCoverPhoto,
             ),
           ),
           Positioned(
@@ -421,16 +557,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       ),
                     ),
                     alignment: Alignment.center,
-                    child: Text(
-                      _initial,
-                      style: const TextStyle(
-                        fontFamily: 'serif',
-                        fontSize: 51,
-                        height: 1,
-                        fontWeight: FontWeight.w800,
-                        color: _ProfilePalette.coffee,
-                      ),
-                    ),
+                    child: _buildAvatarImage(avatarSize),
                   ),
                   Positioned(
                     bottom: 2,
@@ -442,15 +569,24 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       ),
                       elevation: 2,
                       child: InkWell(
-                        onTap: _photoInfo,
+                        onTap: _changeProfilePhoto,
                         customBorder: const CircleBorder(),
-                        child: const Padding(
-                          padding: EdgeInsets.all(9),
-                          child: Icon(
-                            Icons.photo_camera_outlined,
-                            color: Colors.white,
-                            size: 17,
-                          ),
+                        child: Padding(
+                          padding: const EdgeInsets.all(9),
+                          child: _uploadingProfilePhoto
+                              ? const SizedBox(
+                                  width: 17,
+                                  height: 17,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    color: Colors.white,
+                                  ),
+                                )
+                              : const Icon(
+                                  Icons.photo_camera_outlined,
+                                  color: Colors.white,
+                                  size: 17,
+                                ),
                         ),
                       ),
                     ),
@@ -500,6 +636,62 @@ class _ProfileScreenState extends State<ProfileScreen> {
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildCoverImage() {
+    final coverUrl = _absoluteImageUrl(_user.coverImageUrl);
+    if (coverUrl != null) {
+      return Image.network(
+        coverUrl,
+        fit: BoxFit.cover,
+        alignment: Alignment.center,
+        errorBuilder: (_, _, _) => _defaultCoverImage(),
+      );
+    }
+
+    return _defaultCoverImage();
+  }
+
+  Widget _defaultCoverImage() {
+    return const DecoratedBox(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [Color(0xFFFFF7EF), Color(0xFFFFE3CF), Color(0xFFF7C79F)],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildAvatarImage(double avatarSize) {
+    final profileUrl = _absoluteImageUrl(_user.profileImageUrl);
+    if (profileUrl != null) {
+      return ClipOval(
+        child: Image.network(
+          profileUrl,
+          width: avatarSize,
+          height: avatarSize,
+          fit: BoxFit.cover,
+          errorBuilder: (_, _, _) => _avatarInitial(),
+        ),
+      );
+    }
+
+    return _avatarInitial();
+  }
+
+  Widget _avatarInitial() {
+    return Text(
+      _initial,
+      style: const TextStyle(
+        fontFamily: 'serif',
+        fontSize: 51,
+        height: 1,
+        fontWeight: FontWeight.w800,
+        color: _ProfilePalette.coffee,
       ),
     );
   }
@@ -675,9 +867,15 @@ class _HeaderRoundIcon extends StatelessWidget {
 }
 
 class _HeaderRoundButton extends StatelessWidget {
-  const _HeaderRoundButton({required this.icon, required this.onTap});
+  const _HeaderRoundButton({
+    required this.icon,
+    required this.onTap,
+    this.loading = false,
+  });
+
   final IconData icon;
   final VoidCallback onTap;
+  final bool loading;
 
   @override
   Widget build(BuildContext context) {
@@ -690,11 +888,34 @@ class _HeaderRoundButton extends StatelessWidget {
         child: SizedBox(
           width: 37,
           height: 37,
-          child: Icon(icon, size: 21, color: _ProfilePalette.coffeeDark),
+          child: loading
+              ? const Center(
+                  child: SizedBox(
+                    width: 17,
+                    height: 17,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: _ProfilePalette.coffeeDark,
+                    ),
+                  ),
+                )
+              : Icon(icon, size: 21, color: _ProfilePalette.coffeeDark),
         ),
       ),
     );
   }
+}
+
+class _PickedProfileImage {
+  const _PickedProfileImage({
+    required this.bytes,
+    required this.extension,
+    required this.subtype,
+  });
+
+  final Uint8List bytes;
+  final String extension;
+  final String subtype;
 }
 
 class _VerificationBadge extends StatelessWidget {

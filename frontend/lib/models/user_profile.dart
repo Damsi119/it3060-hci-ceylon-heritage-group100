@@ -7,6 +7,8 @@ class UserProfile {
     this.firstName,
     this.lastName,
     this.address,
+    this.profileImageUrl,
+    this.coverImageUrl,
     required this.role,
     required this.provider,
     required this.emailVerified,
@@ -20,6 +22,8 @@ class UserProfile {
   final String? firstName;
   final String? lastName;
   final String? address;
+  final String? profileImageUrl;
+  final String? coverImageUrl;
   final String role;
   final String provider;
   final bool emailVerified;
@@ -46,6 +50,8 @@ class UserProfile {
       firstName: json['firstName'] as String?,
       lastName: json['lastName'] as String?,
       address: json['address'] as String?,
+      profileImageUrl: json['profileImageUrl'] as String?,
+      coverImageUrl: json['coverImageUrl'] as String?,
       role: json['role'] as String? ?? 'TOURIST',
       provider: json['provider'] as String? ?? 'LOCAL',
       emailVerified: json['emailVerified'] as bool? ?? false,

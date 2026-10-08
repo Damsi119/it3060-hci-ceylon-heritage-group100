@@ -136,7 +136,8 @@ public class SecurityConfig {
                         // Visitors can view uploaded post photos.
                         .requestMatchers(
                                 HttpMethod.GET,
-                                "/uploads/community-posts/**"
+                                "/uploads/community-posts/**",
+                                "/uploads/profile-images/**"
                         )
                         .permitAll()
 

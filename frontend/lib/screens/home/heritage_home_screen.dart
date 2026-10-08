@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../core/constants/api_config.dart';
+import '../../models/user_profile.dart';
 import '../../services/api_client.dart';
 import '../../widgets/heritage_logo.dart';
 import '../explore/historical_place_details_screen.dart';
@@ -358,6 +360,32 @@ class _HeritageHomeScreenState extends State<HeritageHomeScreen> {
         .replaceAll(RegExp(r'[^a-z0-9]'), '');
   }
 
+  String? _absoluteImageUrl(String? value) {
+    final clean = value?.trim();
+    if (clean == null || clean.isEmpty) return null;
+    if (clean.startsWith('http://') || clean.startsWith('https://')) {
+      return clean;
+    }
+    final baseUrl = ApiConfig.baseUrl.replaceFirst(RegExp(r'/+$'), '');
+    final path = clean.startsWith('/') ? clean : '/$clean';
+    return '$baseUrl$path';
+  }
+
+  String get _avatarInitial {
+    final user = widget.user;
+    if (user is UserProfile) {
+      final name = user.displayName.trim();
+      return name.isEmpty ? 'U' : name[0].toUpperCase();
+    }
+    return 'U';
+  }
+
+  String? get _profileImageUrl {
+    final user = widget.user;
+    if (user is UserProfile) return user.profileImageUrl;
+    return null;
+  }
+
   Future<void> _openCommunityPlace(int placeId) async {
     if (_openingPlace || placeId <= 0) return;
 
@@ -624,6 +652,8 @@ class _HeritageHomeScreenState extends State<HeritageHomeScreen> {
                   onPressed: _notifications,
                   icon: const Icon(Icons.notifications_none_outlined),
                 ),
+                const SizedBox(width: 8),
+                _profileAvatarButton(),
               ],
             ),
           ),
@@ -687,6 +717,45 @@ class _HeritageHomeScreenState extends State<HeritageHomeScreen> {
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _profileAvatarButton() {
+    const size = 40.0;
+    final imageUrl = _absoluteImageUrl(_profileImageUrl);
+
+    return Material(
+      shape: const CircleBorder(),
+      color: Colors.white,
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: _profile,
+        customBorder: const CircleBorder(),
+        child: SizedBox(
+          width: size,
+          height: size,
+          child: imageUrl == null
+              ? _profileInitial()
+              : Image.network(
+                  imageUrl,
+                  fit: BoxFit.cover,
+                  errorBuilder: (_, _, _) => _profileInitial(),
+                ),
+        ),
+      ),
+    );
+  }
+
+  Widget _profileInitial() {
+    return Center(
+      child: Text(
+        _avatarInitial,
+        style: const TextStyle(
+          color: _primary,
+          fontSize: 16,
+          fontWeight: FontWeight.w800,
+        ),
       ),
     );
   }

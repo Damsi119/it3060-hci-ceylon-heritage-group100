@@ -10,19 +10,28 @@ import java.nio.file.Path;
 @Configuration
 public class PostPhotoWebConfig implements WebMvcConfigurer {
 
-    private final String resourceLocation;
+    private final String postResourceLocation;
+    private final String profileResourceLocation;
 
     public PostPhotoWebConfig(
             @Value("${app.upload.post-directory:uploads/community-posts}")
-            String directory
+            String postDirectory,
+
+            @Value("${app.upload.profile-directory:uploads/profile-images}")
+            String profileDirectory
     ) {
+        this.postResourceLocation = resourceLocation(postDirectory);
+        this.profileResourceLocation = resourceLocation(profileDirectory);
+    }
+
+    private String resourceLocation(String directory) {
         String location = Path.of(directory)
                 .toAbsolutePath()
                 .normalize()
                 .toUri()
                 .toString();
 
-        this.resourceLocation = location.endsWith("/")
+        return location.endsWith("/")
                 ? location
                 : location + "/";
     }
@@ -33,6 +42,10 @@ public class PostPhotoWebConfig implements WebMvcConfigurer {
     ) {
         registry
                 .addResourceHandler("/uploads/community-posts/**")
-                .addResourceLocations(resourceLocation);
+                .addResourceLocations(postResourceLocation);
+
+        registry
+                .addResourceHandler("/uploads/profile-images/**")
+                .addResourceLocations(profileResourceLocation);
     }
 }

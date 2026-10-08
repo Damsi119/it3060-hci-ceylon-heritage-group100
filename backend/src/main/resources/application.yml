@@ -62,3 +62,4 @@ app:
     email-verification-required: true
   upload:
     post-directory: uploads/community-posts
+    profile-directory: uploads/profile-images
