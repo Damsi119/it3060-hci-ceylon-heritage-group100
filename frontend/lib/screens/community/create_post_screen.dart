@@ -60,9 +60,16 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
   bool _picking = false;
   bool _publishing = false;
   bool _published = false;
+  bool _navigating = false;
 
   String? _placeError;
   String? _publishError;
+
+  bool get _busy => _publishing || _picking;
+
+  bool get _editable => !_busy && !_published;
+
+  String get _baseUrl => ApiConfig.baseUrl.replaceFirst(RegExp(r'/+$'), '');
 
   @override
   void initState() {
@@ -77,10 +84,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
   }
 
   int _id(dynamic value) {
-    if (value is num) {
-      return value.toInt();
-    }
-
+    if (value is int) return value;
     return int.tryParse(value?.toString() ?? '') ?? 0;
   }
 
@@ -93,63 +97,39 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
 
     ScaffoldMessenger.of(context)
       ..hideCurrentSnackBar()
-      ..showSnackBar(
-        SnackBar(
-          content: Text(message),
-        ),
-      );
+      ..showSnackBar(SnackBar(content: Text(message)));
   }
 
   Future<void> _loadPlaces() async {
-    if (mounted) {
-      setState(() {
-        _loadingPlaces = true;
-        _placeError = null;
-      });
-    }
+    if (!mounted) return;
+
+    setState(() {
+      _loadingPlaces = true;
+      _placeError = null;
+    });
 
     try {
       final dynamic response = await ApiClient.instance
-          .get(
-        '/api/places',
-        authenticated: false,
-      )
-          .timeout(
-        const Duration(seconds: 20),
-      );
+          .get('/api/places', authenticated: false)
+          .timeout(const Duration(seconds: 20));
 
       if (response is! List) {
-        throw const FormatException(
-          'Invalid places response.',
-        );
+        throw const FormatException('Invalid places response.');
       }
 
-      final List<Map<String, dynamic>> places =
-      <Map<String, dynamic>>[];
+      final List<Map<String, dynamic>> places = [];
 
       for (final dynamic item in response) {
-        if (item is! Map) {
-          continue;
-        }
+        if (item is! Map) continue;
 
-        final Map<String, dynamic> place =
-        Map<String, dynamic>.from(item);
+        final place = Map<String, dynamic>.from(item);
 
         if (_id(place['id']) > 0) {
           places.add(place);
         }
       }
 
-      places.sort(
-            (
-            Map<String, dynamic> a,
-            Map<String, dynamic> b,
-            ) {
-          return _text(a['name']).compareTo(
-            _text(b['name']),
-          );
-        },
-      );
+      places.sort((a, b) => _text(a['name']).compareTo(_text(b['name'])));
 
       if (!mounted) return;
 
@@ -157,9 +137,8 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
         _places = places;
         _loadingPlaces = false;
 
-        if (_selectedPlace == null &&
-            widget.initialPlaceId != null) {
-          for (final Map<String, dynamic> place in places) {
+        if (_selectedPlace == null && widget.initialPlaceId != null) {
+          for (final place in places) {
             if (_id(place['id']) == widget.initialPlaceId) {
               _selectedPlace = place;
               break;
@@ -172,139 +151,120 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
 
       setState(() {
         _loadingPlaces = false;
-        _placeError =
-        'Could not load places. Please try again.';
+        _placeError = 'Could not load places. Please try again.';
       });
     }
   }
 
   Future<void> _selectPlace() async {
-    if (_publishing || _loadingPlaces) {
-      return;
-    }
+    if (!_editable || _loadingPlaces) return;
 
     if (_places.isEmpty) {
-      _message(
-        'No historical places are available yet.',
-      );
+      _message('No historical places are available yet.');
       return;
     }
 
-    final Map<String, dynamic>? selected =
-    await showModalBottomSheet<Map<String, dynamic>>(
+    final selected = await showModalBottomSheet<Map<String, dynamic>>(
       context: context,
       isScrollControlled: true,
       useSafeArea: true,
       backgroundColor: _background,
-      builder: (_) {
-        return _PlacePicker(
-          places: _places,
-        );
-      },
+      builder: (_) => _PlacePicker(places: _places),
     );
 
-    if (!mounted || selected == null) {
-      return;
-    }
+    if (!mounted || selected == null || !_editable) return;
 
     setState(() {
       _selectedPlace = selected;
+      _publishError = null;
     });
   }
 
   Future<void> _pickPhotos() async {
-    if (_picking || _publishing || _published) {
-      return;
-    }
+    if (!_editable) return;
 
     if (_photos.length >= _maxPhotos) {
-      _message(
-        'You can add a maximum of 5 photos.',
-      );
+      _message('You can add a maximum of 5 photos.');
       return;
     }
 
     setState(() {
       _picking = true;
+      _publishError = null;
     });
 
     try {
-      final List<PlatformFile> result =
-      await FilePicker.pickFiles(
+      final List<PlatformFile> files = await FilePicker.pickFiles(
         type: FileType.custom,
-        allowedExtensions: <String>[
-          'jpg',
-          'jpeg',
-          'png',
-        ],
+        allowedExtensions: <String>['jpg', 'jpeg', 'png'],
       );
 
-      if (!mounted || result.isEmpty) {
-        return;
-      }
+      if (!mounted || files.isEmpty) return;
 
-      final List<_SelectedPhoto> additions =
-      <_SelectedPhoto>[];
+      final List<_SelectedPhoto> additions = [];
+      final List<String> messages = [];
 
-      final List<String> messages = <String>[];
-
-      for (final PlatformFile file in result) {
-        if (_photos.length + additions.length >=
-            _maxPhotos) {
-          messages.add(
-            'Only 5 photos can be added.',
-          );
+      for (final file in files) {
+        if (_photos.length + additions.length >= _maxPhotos) {
+          messages.add('Only 5 photos can be added.');
           break;
         }
 
-        final Uint8List bytes =
-        await file.readAsBytes();
+        try {
+          // Check length before loading a potentially large file into memory.
+          final int length = await file.length();
 
-        if (bytes.isEmpty) {
-          messages.add(
-            '${file.name}: could not read the photo.',
+          if (length > _maxBytes) {
+            messages.add('${file.name}: exceeds the 5 MB limit.');
+            continue;
+          }
+
+          final Uint8List bytes = await file.readAsBytes();
+
+          if (!mounted) return;
+
+          if (bytes.isEmpty) {
+            messages.add('${file.name}: could not read the photo.');
+            continue;
+          }
+
+          if (bytes.length > _maxBytes) {
+            messages.add('${file.name}: exceeds the 5 MB limit.');
+            continue;
+          }
+
+          final bool isPng =
+              bytes.length >= 8 &&
+              bytes[0] == 0x89 &&
+              bytes[1] == 0x50 &&
+              bytes[2] == 0x4E &&
+              bytes[3] == 0x47 &&
+              bytes[4] == 0x0D &&
+              bytes[5] == 0x0A &&
+              bytes[6] == 0x1A &&
+              bytes[7] == 0x0A;
+
+          final bool isJpeg =
+              bytes.length >= 3 &&
+              bytes[0] == 0xFF &&
+              bytes[1] == 0xD8 &&
+              bytes[2] == 0xFF;
+
+          if (!isPng && !isJpeg) {
+            messages.add('${file.name}: select a JPG or PNG image.');
+            continue;
+          }
+
+          additions.add(
+            _SelectedPhoto(
+              bytes: bytes,
+              subtype: isPng ? 'png' : 'jpeg',
+              extension: isPng ? 'png' : 'jpg',
+            ),
           );
-          continue;
+        } catch (_) {
+          messages.add('${file.name}: could not read the photo.');
         }
-
-        if (bytes.length > _maxBytes) {
-          messages.add(
-            '${file.name}: exceeds the 5 MB limit.',
-          );
-          continue;
-        }
-
-        final bool isPng =
-            bytes.length >= 8 &&
-                bytes[0] == 0x89 &&
-                bytes[1] == 0x50 &&
-                bytes[2] == 0x4E &&
-                bytes[3] == 0x47 &&
-                bytes[4] == 0x0D &&
-                bytes[5] == 0x0A &&
-                bytes[6] == 0x1A &&
-                bytes[7] == 0x0A;
-
-        final bool isJpeg =
-            bytes.length >= 3 &&
-                bytes[0] == 0xFF &&
-                bytes[1] == 0xD8 &&
-                bytes[2] == 0xFF;
-
-        if (!isPng && !isJpeg) {
-          messages.add(
-            '${file.name}: select a JPG or PNG image.',
-          );
-          continue;
-        }
-
-        additions.add(
-          _SelectedPhoto(
-            bytes: bytes,
-            subtype: isPng ? 'png' : 'jpeg',
-            extension: isPng ? 'png' : 'jpg',
-          ),
-        );
       }
 
       if (!mounted) return;
@@ -316,14 +276,10 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
       }
 
       if (messages.isNotEmpty) {
-        _message(
-          messages.join('\n'),
-        );
+        _message(messages.join('\n'));
       }
     } catch (_) {
-      _message(
-        'Could not select photos. Please try again.',
-      );
+      _message('Could not select photos. Please try again.');
     } finally {
       if (mounted) {
         setState(() {
@@ -334,147 +290,84 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
   }
 
   Future<http.Response> _upload(
-      http.Client client,
-      String token,
-      Map<String, dynamic> post,
-      ) async {
-    final String base =
-    ApiConfig.baseUrl.replaceFirst(
-      RegExp(r'/+$'),
-      '',
-    );
-
-    final http.MultipartRequest request =
-    http.MultipartRequest(
+    http.Client client,
+    String token,
+    Map<String, dynamic> post,
+  ) async {
+    final request = http.MultipartRequest(
       'POST',
-      Uri.parse('$base/api/posts'),
+      Uri.parse('$_baseUrl/api/posts'),
     );
 
-    request.headers['Authorization'] =
-    'Bearer $token';
+    request.headers.addAll({
+      'Authorization': 'Bearer $token',
+      'Accept': 'application/json',
+    });
 
-    request.headers['Accept'] =
-    'application/json';
-
+    // Spring Boot expects a JSON request part named "post".
     request.files.add(
       http.MultipartFile.fromString(
         'post',
         jsonEncode(post),
-        contentType: MediaType(
-          'application',
-          'json',
-        ),
+        contentType: MediaType('application', 'json'),
       ),
     );
 
-    for (
-    int index = 0;
-    index < _photos.length;
-    index++
-    ) {
-      final _SelectedPhoto photo =
-      _photos[index];
+    // Spring Boot expects all image parts to use the name "photos".
+    for (int index = 0; index < _photos.length; index++) {
+      final photo = _photos[index];
 
       request.files.add(
         http.MultipartFile.fromBytes(
           'photos',
           photo.bytes,
-          filename:
-          'photo_${index + 1}.${photo.extension}',
-          contentType: MediaType(
-            'image',
-            photo.subtype,
-          ),
+          filename: 'photo_${index + 1}.${photo.extension}',
+          contentType: MediaType('image', photo.subtype),
         ),
       );
     }
 
-    final http.StreamedResponse streamed =
-    await client.send(request);
-
-    return http.Response.fromStream(
-      streamed,
-    );
+    // MultipartRequest supplies Content-Type and its boundary automatically.
+    final streamed = await client.send(request);
+    return http.Response.fromStream(streamed);
   }
 
-  Future<String?> _refreshAccessToken(
-      http.Client client,
-      ) async {
-    final String? refreshToken =
-    await TokenStore.getRefreshToken();
+  Future<String?> _refreshAccessToken(http.Client client) async {
+    final String? refreshToken = await TokenStore.getRefreshToken();
 
-    if (refreshToken == null ||
-        refreshToken.isEmpty) {
+    if (refreshToken == null || refreshToken.trim().isEmpty) {
       return null;
     }
 
-    final String base =
-    ApiConfig.baseUrl.replaceFirst(
-      RegExp(r'/+$'),
-      '',
-    );
-
-    final http.Response response =
-    await client
+    final response = await client
         .post(
-      Uri.parse(
-        '$base/api/auth/refresh',
-      ),
-      headers: const <String, String>{
-        'Content-Type':
-        'application/json',
-        'Accept':
-        'application/json',
-      },
-      body: jsonEncode(
-        <String, dynamic>{
-          'refreshToken':
-          refreshToken,
-        },
-      ),
-    )
-        .timeout(
-      const Duration(seconds: 20),
-    );
+          Uri.parse('$_baseUrl/api/auth/refresh'),
+          headers: const {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json',
+          },
+          body: jsonEncode({'refreshToken': refreshToken}),
+        )
+        .timeout(const Duration(seconds: 20));
 
-    if (response.statusCode < 200 ||
-        response.statusCode >= 300) {
+    if (response.statusCode < 200 || response.statusCode >= 300) {
       return null;
     }
 
-    final dynamic decoded =
-    jsonDecode(response.body);
+    final dynamic decoded = jsonDecode(utf8.decode(response.bodyBytes));
 
-    if (decoded is! Map) {
-      return null;
-    }
+    if (decoded is! Map) return null;
 
-    final String access =
-    _text(decoded['accessToken']);
+    final String access = _text(decoded['accessToken']);
+    final String refresh = _text(decoded['refreshToken']);
 
-    final String refresh =
-    _text(decoded['refreshToken']);
+    if (access.isEmpty || refresh.isEmpty) return null;
 
-    if (access.isEmpty ||
-        refresh.isEmpty) {
-      return null;
-    }
-
-    await TokenStore.saveTokens(
-      access,
-      refresh,
-    );
-
+    await TokenStore.saveTokens(access, refresh);
     return access;
   }
 
-  String _responseError(
-      http.Response response,
-      ) {
-    if (response.statusCode == 400) {
-      return 'Please check the post details and try again.';
-    }
-
+  String _responseError(http.Response response) {
     if (response.statusCode == 401) {
       return 'Please sign in again before publishing.';
     }
@@ -488,166 +381,113 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
     }
 
     try {
-      final dynamic decoded =
-      jsonDecode(response.body);
+      final dynamic decoded = jsonDecode(utf8.decode(response.bodyBytes));
 
       if (decoded is Map) {
-        final String message =
-        _text(decoded['message']);
+        for (final key in <String>['message', 'detail', 'error']) {
+          final dynamic value = decoded[key];
 
-        if (message.isNotEmpty) {
-          return message;
-        }
-
-        final String detail =
-        _text(decoded['detail']);
-
-        if (detail.isNotEmpty) {
-          return detail;
-        }
-
-        final String error =
-        _text(decoded['error']);
-
-        if (error.isNotEmpty) {
-          return error;
+          if (value is String && value.trim().isNotEmpty) {
+            return value.trim();
+          }
         }
       }
     } catch (_) {
-      // Non-JSON server response.
+      // Use a readable fallback for non-JSON responses.
     }
 
-    return 'Publishing failed '
-        '(HTTP ${response.statusCode}).';
+    if (response.statusCode == 400) {
+      return 'Please check the post details and try again.';
+    }
+
+    return 'Publishing failed (HTTP ${response.statusCode}).';
   }
 
   Future<void> _publish() async {
-    if (_publishing ||
-        _picking ||
-        _published) {
-      return;
-    }
+    if (!_editable) return;
 
-    final Map<String, dynamic>? place =
-        _selectedPlace;
-
-    final String caption =
-    _caption.text.trim();
+    final place = _selectedPlace;
+    final String caption = _caption.text.trim();
 
     if (place == null) {
-      _message(
-        'Please select a historical place.',
-      );
+      _message('Please select a historical place.');
       return;
     }
 
-    final int placeId =
-    _id(place['id']);
+    final int placeId = _id(place['id']);
 
     if (placeId <= 0) {
-      _message(
-        'The selected historical place is invalid.',
-      );
+      _message('The selected historical place is invalid.');
       return;
     }
 
     if (_photos.isEmpty) {
-      _message(
-        'Please add at least one photo.',
-      );
+      _message('Please add at least one photo.');
       return;
     }
 
     if (_photos.length > _maxPhotos) {
-      _message(
-        'You can add a maximum of 5 photos.',
-      );
+      _message('You can add a maximum of 5 photos.');
       return;
     }
 
-    if (caption.isEmpty ||
-        caption.length > 500) {
-      _message(
-        'Enter a caption between 1 and 500 characters.',
-      );
+    if (caption.isEmpty || caption.length > 500) {
+      _message('Enter a caption between 1 and 500 characters.');
       return;
     }
 
     if (_tags.length > 10) {
-      _message(
-        'You can add a maximum of 10 tags.',
-      );
+      _message('You can add a maximum of 10 tags.');
       return;
     }
 
-    if (_tags.any(
-          (String tag) =>
-      tag.trim().isEmpty ||
-          tag.length > 50,
-    )) {
-      _message(
-        'Each tag must contain text and be 50 characters or less.',
-      );
+    if (_tags.any((tag) => tag.trim().isEmpty || tag.length > 50)) {
+      _message('Each tag must contain text and be 50 characters or less.');
       return;
     }
+
+    FocusScope.of(context).unfocus();
 
     setState(() {
       _publishing = true;
       _publishError = null;
     });
 
-    final http.Client client =
-    http.Client();
+    final client = http.Client();
 
     try {
-      final String? token =
-      await TokenStore.getAccessToken();
+      final String? token = await TokenStore.getAccessToken();
 
-      if (token == null ||
-          token.isEmpty) {
-        throw const ApiException(
-          'Please sign in before publishing.',
-        );
+      if (token == null || token.trim().isEmpty) {
+        throw const ApiException('Please sign in before publishing.');
       }
 
-      final Map<String, dynamic> payload =
-      <String, dynamic>{
+      final Map<String, dynamic> payload = {
         'placeId': placeId,
         'caption': caption,
         'tags': _tags.toList(),
       };
 
-      http.Response response =
-      await _upload(
+      http.Response response = await _upload(
         client,
         token,
         payload,
-      ).timeout(
-        const Duration(seconds: 60),
-      );
+      ).timeout(const Duration(seconds: 60));
 
       if (response.statusCode == 401) {
-        final String? refreshed =
-        await _refreshAccessToken(
-          client,
-        );
+        final String? refreshed = await _refreshAccessToken(client);
 
         if (refreshed != null) {
           response = await _upload(
             client,
             refreshed,
             payload,
-          ).timeout(
-            const Duration(seconds: 60),
-          );
+          ).timeout(const Duration(seconds: 60));
         }
       }
 
-      if (response.statusCode < 200 ||
-          response.statusCode >= 300) {
-        throw ApiException(
-          _responseError(response),
-        );
+      if (response.statusCode < 200 || response.statusCode >= 300) {
+        throw ApiException(_responseError(response), response.statusCode);
       }
 
       if (!mounted) return;
@@ -657,19 +497,22 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
         _publishing = false;
       });
 
+      // Allow PopScope to rebuild before returning to the feed.
+      await WidgetsBinding.instance.endOfFrame;
+
+      if (!mounted) return;
+
       if (Navigator.of(context).canPop()) {
         Navigator.of(context).pop(true);
       } else {
-        _message(
-          'Your post was published successfully.',
-        );
+        _message('Your post was published successfully.');
       }
     } on TimeoutException {
       if (!mounted) return;
 
       setState(() {
         _publishError =
-        'The upload timed out. Check My Posts before trying again '
+            'The upload timed out. Check My Posts before trying again '
             'because the server may already have received your post.';
       });
     } on ApiException catch (error) {
@@ -683,7 +526,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
 
       setState(() {
         _publishError =
-        'Could not confirm publication. Check your connection '
+            'Could not confirm publication. Check your connection '
             'and My Posts before trying again.';
       });
     } finally {
@@ -697,337 +540,213 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
     }
   }
 
-  void _navigate(
-      VoidCallback? callback,
-      String label,
-      ) {
-    if (_publishing) {
+  void _back() {
+    if (_busy || _navigating) return;
+
+    if (Navigator.of(context).canPop()) {
+      _navigating = true;
+      Navigator.of(context).pop(_published);
       return;
     }
+
+    _navigate(widget.onCommunity, 'Community');
+  }
+
+  void _navigate(VoidCallback? callback, String label) {
+    if (_busy || _navigating) return;
 
     if (callback != null) {
-      callback();
-      return;
-    }
+      _navigating = true;
 
-    if (label == 'Community' &&
-        Navigator.of(context).canPop()) {
-      Navigator.of(context).pop();
-      return;
-    }
-
-    _message(
-      'The $label page has not been connected yet.',
-    );
-  }
-
-  String? _placeImageUrl(
-      Map<String, dynamic>? place,
-      ) {
-    if (place == null) {
-      return null;
-    }
-
-    dynamic raw = place['imageUrl'];
-
-    raw ??= place['thumbnailUrl'];
-    raw ??= place['coverImageUrl'];
-
-    if (raw == null &&
-        place['imageUrls'] is List &&
-        (place['imageUrls'] as List).isNotEmpty) {
-      raw = (place['imageUrls'] as List).first;
-    }
-
-    final String value =
-    _text(raw);
-
-    if (value.isEmpty) {
-      return null;
-    }
-
-    final Uri? uri =
-    Uri.tryParse(value);
-
-    if (uri == null) {
-      return null;
-    }
-
-    if (uri.hasScheme) {
-      if (uri.scheme == 'http' ||
-          uri.scheme == 'https') {
-        return uri.toString();
+      try {
+        callback();
+      } finally {
+        if (mounted) {
+          _navigating = false;
+        }
       }
 
-      return null;
+      return;
     }
 
-    final String base =
-    ApiConfig.baseUrl.replaceFirst(
-      RegExp(r'/+$'),
-      '',
-    );
+    if (label == 'Community' && Navigator.of(context).canPop()) {
+      _navigating = true;
+      Navigator.of(context).pop(_published);
+      return;
+    }
 
-    return Uri.parse('$base/')
-        .resolveUri(uri)
-        .toString();
+    _message('The $label page has not been connected yet.');
   }
 
-  Widget _placeThumbnail(
-      Map<String, dynamic>? place,
-      ) {
-    final String? imageUrl =
-    _placeImageUrl(place);
+  String? _placeImageUrl(Map<String, dynamic>? place) {
+    if (place == null) return null;
 
-    if (imageUrl == null) {
-      return Container(
-        width: 70,
-        height: 58,
-        decoration: BoxDecoration(
-          color: _surface,
-          borderRadius:
-          BorderRadius.circular(8),
-        ),
-        child: const Icon(
-          Icons.account_balance,
-          color: _primary,
-        ),
+    final List<dynamic> candidates = [
+      place['imageUrl'],
+      place['thumbnailUrl'],
+      place['coverImageUrl'],
+    ];
+
+    final dynamic images = place['imageUrls'];
+
+    if (images is List && images.isNotEmpty) {
+      candidates.add(images.first);
+    }
+
+    for (final raw in candidates) {
+      final String value = _text(raw);
+      if (value.isEmpty) continue;
+
+      final Uri? uri = Uri.tryParse(value);
+      if (uri == null) continue;
+
+      if (uri.hasScheme) {
+        if (uri.scheme == 'http' || uri.scheme == 'https') {
+          return uri.toString();
+        }
+        continue;
+      }
+
+      return Uri.parse('$_baseUrl/').resolveUri(uri).toString();
+    }
+
+    return null;
+  }
+
+  Widget _placeThumbnail(Map<String, dynamic>? place) {
+    final String? imageUrl = _placeImageUrl(place);
+
+    Widget fallback() {
+      return const ColoredBox(
+        color: _surface,
+        child: Center(child: Icon(Icons.account_balance, color: _primary)),
       );
     }
 
     return ClipRRect(
-      borderRadius:
-      BorderRadius.circular(8),
-      child: Image.network(
-        imageUrl,
+      borderRadius: BorderRadius.circular(8),
+      child: SizedBox(
         width: 70,
         height: 58,
-        fit: BoxFit.cover,
-        errorBuilder: (
-            _,
-            Object error,
-            StackTrace? stackTrace,
-            ) {
-          return Container(
-            width: 70,
-            height: 58,
-            color: _surface,
-            child: const Icon(
-              Icons.account_balance,
-              color: _primary,
-            ),
-          );
-        },
+        child: imageUrl == null
+            ? fallback()
+            : Image.network(
+                imageUrl,
+                fit: BoxFit.cover,
+                errorBuilder: (context, error, stackTrace) => fallback(),
+              ),
       ),
     );
   }
 
-  Widget _sectionTitle(
-      String text, {
-        String? optional,
-      }) {
-    return Row(
-      crossAxisAlignment:
-      CrossAxisAlignment.end,
-      children: <Widget>[
+  Widget _sectionTitle(String text, {String? optional}) {
+    return Wrap(
+      spacing: 6,
+      runSpacing: 2,
+      crossAxisAlignment: WrapCrossAlignment.center,
+      children: [
         Text(
           text,
-          style:
-          GoogleFonts.playfairDisplay(
+          style: GoogleFonts.playfairDisplay(
             fontSize: 21,
-            fontWeight:
-            FontWeight.w600,
+            fontWeight: FontWeight.w600,
             color: _heading,
           ),
         ),
-        if (optional != null) ...<Widget>[
-          const SizedBox(width: 5),
-          Padding(
-            padding:
-            const EdgeInsets.only(
-              bottom: 2,
-            ),
-            child: Text(
-              optional,
-              style:
-              GoogleFonts.playfairDisplay(
-                fontSize: 16,
-                color: _muted,
-              ),
-            ),
+        if (optional != null)
+          Text(
+            optional,
+            style: GoogleFonts.playfairDisplay(fontSize: 16, color: _muted),
           ),
-        ],
       ],
     );
   }
 
   @override
   Widget build(BuildContext context) {
-    final ThemeData theme =
-    Theme.of(context);
+    final ThemeData theme = Theme.of(context);
 
     return PopScope(
-      canPop: !_publishing,
+      canPop: !_busy,
       child: Theme(
         data: theme.copyWith(
-          textTheme:
-          GoogleFonts.interTextTheme(
-            theme.textTheme,
+          textTheme: GoogleFonts.interTextTheme(theme.textTheme),
+          colorScheme: theme.colorScheme.copyWith(
+            primary: _primary,
+            surface: _background,
           ),
         ),
         child: Scaffold(
           backgroundColor: _background,
           body: SafeArea(
-            child: Column(
-              children: <Widget>[
-                Expanded(
-                  child: Center(
-                    child: ConstrainedBox(
-                      constraints:
-                      const BoxConstraints(
-                        maxWidth: 700,
-                      ),
-                      child:
-                      SingleChildScrollView(
-                        padding:
-                        const EdgeInsets
-                            .fromLTRB(
-                          20,
-                          12,
-                          20,
-                          30,
-                        ),
-                        child: Column(
-                          crossAxisAlignment:
-                          CrossAxisAlignment
-                              .start,
-                          children: <Widget>[
-                            _topHeader(),
-                            const SizedBox(
-                              height: 22,
-                            ),
-                            Text(
-                              'Create Post',
-                              style: GoogleFonts
-                                  .playfairDisplay(
-                                fontSize: 30,
-                                height: 1,
-                                fontWeight:
-                                FontWeight
-                                    .w700,
-                                color: _heading,
-                              ),
-                            ),
-                            const SizedBox(
-                              height: 6,
-                            ),
-                            const Text(
-                              'Share your experience with the community',
-                              style: TextStyle(
-                                color: Color(
-                                  0xFF65758B,
-                                ),
-                                fontSize: 13,
-                              ),
-                            ),
-                            const SizedBox(
-                              height: 24,
-                            ),
-                            _sectionTitle(
-                              'Select Historical Place',
-                            ),
-                            const SizedBox(
-                              height: 9,
-                            ),
-                            _placeCard(),
-                            const SizedBox(
-                              height: 16,
-                            ),
-                            _sectionTitle(
-                              'Add Photos',
-                            ),
-                            const SizedBox(
-                              height: 10,
-                            ),
-                            _photoGrid(),
-                            const SizedBox(
-                              height: 18,
-                            ),
-                            _sectionTitle(
-                              'Write a Caption',
-                            ),
-                            const SizedBox(
-                              height: 9,
-                            ),
-                            _captionField(),
-                            const SizedBox(
-                              height: 14,
-                            ),
-                            _sectionTitle(
-                              'Add Tags',
-                              optional:
-                              '(Optional)',
-                            ),
-                            const SizedBox(
-                              height: 10,
-                            ),
-                            _tagChips(),
-                            if (_publishError !=
-                                null) ...<Widget>[
-                              const SizedBox(
-                                height: 16,
-                              ),
-                              Container(
-                                width:
-                                double.infinity,
-                                padding:
-                                const EdgeInsets
-                                    .all(
-                                  12,
-                                ),
-                                decoration:
-                                BoxDecoration(
-                                  color:
-                                  const Color(
-                                    0xFFFFEDED,
-                                  ),
-                                  borderRadius:
-                                  BorderRadius
-                                      .circular(
-                                    8,
-                                  ),
-                                ),
-                                child: Text(
-                                  _publishError!,
-                                  style:
-                                  const TextStyle(
-                                    color: Color(
-                                      0xFFB42318,
-                                    ),
-                                    fontSize:
-                                    12,
-                                  ),
-                                ),
-                              ),
-                            ],
-                            const SizedBox(
-                              height: 38,
-                            ),
-                            _shareButton(),
-                            const SizedBox(
-                              height: 8,
-                            ),
-                          ],
+            child: Center(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 700),
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.fromLTRB(20, 12, 20, 30),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _topHeader(),
+                      const SizedBox(height: 22),
+                      Text(
+                        'Create Post',
+                        style: GoogleFonts.playfairDisplay(
+                          fontSize: 30,
+                          height: 1.1,
+                          fontWeight: FontWeight.w700,
+                          color: _heading,
                         ),
                       ),
-                    ),
+                      const SizedBox(height: 6),
+                      const Text(
+                        'Share your experience with the community',
+                        style: TextStyle(color: _muted, fontSize: 13),
+                      ),
+                      const SizedBox(height: 24),
+                      _sectionTitle('Select Historical Place'),
+                      const SizedBox(height: 9),
+                      _placeCard(),
+                      const SizedBox(height: 16),
+                      _sectionTitle('Add Photos'),
+                      const SizedBox(height: 10),
+                      _photoGrid(),
+                      const SizedBox(height: 18),
+                      _sectionTitle('Write a Caption'),
+                      const SizedBox(height: 9),
+                      _captionField(),
+                      const SizedBox(height: 14),
+                      _sectionTitle('Add Tags', optional: '(Optional)'),
+                      const SizedBox(height: 10),
+                      _tagChips(),
+                      if (_publishError != null) ...[
+                        const SizedBox(height: 16),
+                        Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFFFEDED),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Text(
+                            _publishError ?? '',
+                            style: const TextStyle(
+                              color: Color(0xFFB42318),
+                              fontSize: 13,
+                            ),
+                          ),
+                        ),
+                      ],
+                      const SizedBox(height: 38),
+                      _shareButton(),
+                      const SizedBox(height: 8),
+                    ],
                   ),
                 ),
-              ],
+              ),
             ),
           ),
-          bottomNavigationBar:
-          _bottomNavigation(),
+          bottomNavigationBar: _bottomNavigation(),
         ),
       ),
     );
@@ -1035,65 +754,40 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
 
   Widget _topHeader() {
     return Row(
-      children: <Widget>[
+      children: [
         Material(
           color: Colors.white,
           shape: const CircleBorder(),
           elevation: 1,
           child: IconButton(
             tooltip: 'Back',
-            onPressed: _publishing
-                ? null
-                : () {
-              if (Navigator.of(
-                context,
-              ).canPop()) {
-                Navigator.of(
-                  context,
-                ).pop();
-              }
-            },
-            icon: const Icon(
-              Icons.chevron_left,
-              color: _primary,
-              size: 27,
-            ),
+            onPressed: _busy ? null : _back,
+            icon: const Icon(Icons.chevron_left, color: _primary, size: 27),
           ),
         ),
-        const SizedBox(
-          width: 16,
-        ),
-        const Icon(
-          Icons.spa,
-          color: _primary,
-          size: 38,
-        ),
-        const SizedBox(
-          width: 8,
-        ),
+        const SizedBox(width: 12),
+        const Icon(Icons.spa, color: _primary, size: 34),
+        const SizedBox(width: 8),
         Expanded(
           child: Column(
-            crossAxisAlignment:
-            CrossAxisAlignment.start,
-            children: <Widget>[
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
               Text(
                 'CEYLON HERITAGE',
-                style:
-                GoogleFonts.playfairDisplay(
+                style: GoogleFonts.playfairDisplay(
                   fontSize: 15,
-                  fontWeight:
-                  FontWeight.w700,
+                  fontWeight: FontWeight.w700,
                   color: _heading,
                 ),
               ),
+              const SizedBox(height: 2),
               const Text(
                 'EXPLORE · DISCOVER · PRESERVE',
                 style: TextStyle(
                   color: _primary,
-                  letterSpacing: 1.4,
-                  fontSize: 6,
-                  fontWeight:
-                  FontWeight.w600,
+                  letterSpacing: 0.8,
+                  fontSize: 8,
+                  fontWeight: FontWeight.w500,
                 ),
               ),
             ],
@@ -1111,197 +805,121 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
         alignment: Alignment.center,
         decoration: BoxDecoration(
           color: Colors.white,
-          borderRadius:
-          BorderRadius.circular(8),
-          border: Border.all(
-            color: _border,
-          ),
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: _border),
         ),
         child: const SizedBox(
           width: 22,
           height: 22,
-          child:
-          CircularProgressIndicator(
-            strokeWidth: 2,
-            color: _primary,
-          ),
+          child: CircularProgressIndicator(strokeWidth: 2, color: _primary),
         ),
       );
     }
 
     if (_placeError != null) {
       return Container(
-        padding:
-        const EdgeInsets.all(12),
+        padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
           color: Colors.white,
-          borderRadius:
-          BorderRadius.circular(8),
-          border: Border.all(
-            color: _border,
-          ),
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: _border),
         ),
         child: Row(
-          children: <Widget>[
+          children: [
             Expanded(
               child: Text(
-                _placeError!,
-                style:
-                const TextStyle(
-                  fontSize: 12,
-                  color: _muted,
-                ),
+                _placeError ?? '',
+                style: const TextStyle(fontSize: 13, color: _muted),
               ),
             ),
             TextButton(
-              onPressed: _loadPlaces,
-              child:
-              const Text('Retry'),
+              onPressed: _editable ? _loadPlaces : null,
+              child: const Text('Retry'),
             ),
           ],
         ),
       );
     }
 
-    final Map<String, dynamic>? place =
-        _selectedPlace;
+    final place = _selectedPlace;
 
     return Material(
       color: Colors.white,
-      borderRadius:
-      BorderRadius.circular(8),
+      borderRadius: BorderRadius.circular(8),
       child: InkWell(
-        borderRadius:
-        BorderRadius.circular(8),
-        onTap:
-        _publishing || _published
-            ? null
-            : _selectPlace,
+        borderRadius: BorderRadius.circular(8),
+        onTap: _editable ? _selectPlace : null,
         child: Container(
-          padding:
-          const EdgeInsets.all(6),
+          padding: const EdgeInsets.all(6),
           decoration: BoxDecoration(
-            borderRadius:
-            BorderRadius.circular(8),
-            border: Border.all(
-              color: _border,
-            ),
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: _border),
           ),
           child: Row(
-            children: <Widget>[
+            children: [
               _placeThumbnail(place),
-              const SizedBox(
-                width: 9,
-              ),
+              const SizedBox(width: 9),
               Expanded(
                 child: place == null
                     ? const Column(
-                  crossAxisAlignment:
-                  CrossAxisAlignment
-                      .start,
-                  children: <Widget>[
-                    Text(
-                      'Select a historical place',
-                      style:
-                      TextStyle(
-                        color:
-                        _heading,
-                        fontSize:
-                        13,
-                        fontWeight:
-                        FontWeight
-                            .w600,
-                      ),
-                    ),
-                    SizedBox(
-                      height: 4,
-                    ),
-                    Text(
-                      'Tap to choose a place',
-                      style:
-                      TextStyle(
-                        color:
-                        _muted,
-                        fontSize:
-                        11,
-                      ),
-                    ),
-                  ],
-                )
-                    : Column(
-                  crossAxisAlignment:
-                  CrossAxisAlignment
-                      .start,
-                  children: <Widget>[
-                    Text(
-                      _text(
-                        place['name'],
-                      ),
-                      maxLines: 1,
-                      overflow:
-                      TextOverflow
-                          .ellipsis,
-                      style: GoogleFonts
-                          .playfairDisplay(
-                        color:
-                        _heading,
-                        fontSize:
-                        14,
-                        fontWeight:
-                        FontWeight
-                            .w700,
-                      ),
-                    ),
-                    const SizedBox(
-                      height: 5,
-                    ),
-                    Row(
-                      children:
-                      <Widget>[
-                        const Icon(
-                          Icons
-                              .location_on,
-                          color:
-                          _primary,
-                          size: 15,
-                        ),
-                        const SizedBox(
-                          width: 4,
-                        ),
-                        Expanded(
-                          child: Text(
-                            _text(
-                              place[
-                              'city'],
-                            ).isEmpty
-                                ? 'Sri Lanka'
-                                : '${_text(place['city'])}, Sri Lanka',
-                            maxLines:
-                            1,
-                            overflow:
-                            TextOverflow
-                                .ellipsis,
-                            style:
-                            const TextStyle(
-                              color:
-                              Color(
-                                0xFF65758B,
-                              ),
-                              fontSize:
-                              11,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Select a historical place',
+                            style: TextStyle(
+                              color: _heading,
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
                             ),
                           ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
+                          SizedBox(height: 4),
+                          Text(
+                            'Tap to choose a place',
+                            style: TextStyle(color: _muted, fontSize: 12),
+                          ),
+                        ],
+                      )
+                    : Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            _text(place['name']),
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: GoogleFonts.playfairDisplay(
+                              color: _heading,
+                              fontSize: 14,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                          const SizedBox(height: 5),
+                          Row(
+                            children: [
+                              const Icon(
+                                Icons.location_on,
+                                color: _primary,
+                                size: 15,
+                              ),
+                              const SizedBox(width: 4),
+                              Expanded(
+                                child: Text(
+                                  _text(place['city']).isEmpty
+                                      ? 'Sri Lanka'
+                                      : '${_text(place['city'])}, Sri Lanka',
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(
+                                    color: _muted,
+                                    fontSize: 12,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
               ),
-              const Icon(
-                Icons.chevron_right,
-                color: _primary,
-                size: 25,
-              ),
+              const Icon(Icons.chevron_right, color: _primary, size: 25),
             ],
           ),
         ),
@@ -1311,49 +929,32 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
 
   Widget _photoGrid() {
     return LayoutBuilder(
-      builder: (
-          BuildContext context,
-          BoxConstraints constraints,
-          ) {
-        final double itemWidth =
-            (constraints.maxWidth - 10) / 2;
+      builder: (context, constraints) {
+        final double itemWidth = (constraints.maxWidth - 10) / 2;
 
         return Wrap(
           spacing: 10,
           runSpacing: 10,
-          children: <Widget>[
-            for (
-            int index = 0;
-            index < _photos.length;
-            index++
-            )
+          children: [
+            for (int index = 0; index < _photos.length; index++)
               SizedBox(
                 width: itemWidth,
                 height: 155,
                 child: Stack(
                   fit: StackFit.expand,
-                  children: <Widget>[
+                  children: [
                     ClipRRect(
-                      borderRadius:
-                      BorderRadius
-                          .circular(7),
+                      borderRadius: BorderRadius.circular(7),
                       child: Image.memory(
                         _photos[index].bytes,
                         fit: BoxFit.cover,
-                        errorBuilder: (
-                            _,
-                            Object error,
-                            StackTrace?
-                            stackTrace,
-                            ) {
+                        errorBuilder: (context, error, stackTrace) {
                           return const ColoredBox(
                             color: _surface,
                             child: Center(
                               child: Icon(
-                                Icons
-                                    .broken_image_outlined,
-                                color:
-                                _muted,
+                                Icons.broken_image_outlined,
+                                color: _muted,
                               ),
                             ),
                           );
@@ -1364,40 +965,27 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
                       right: 5,
                       top: 5,
                       child: Container(
-                        width: 28,
-                        height: 28,
-                        decoration:
-                        const BoxDecoration(
-                          color:
-                          Colors.black54,
-                          shape:
-                          BoxShape.circle,
+                        width: 32,
+                        height: 32,
+                        decoration: const BoxDecoration(
+                          color: Colors.black54,
+                          shape: BoxShape.circle,
                         ),
                         child: IconButton(
-                          padding:
-                          EdgeInsets.zero,
-                          tooltip:
-                          'Remove photo',
-                          onPressed:
-                          _publishing ||
-                              _published
-                              ? null
-                              : () {
-                            setState(
-                                  () {
-                                _photos
-                                    .removeAt(
-                                  index,
-                                );
-                              },
-                            );
-                          },
-                          icon:
-                          const Icon(
+                          padding: EdgeInsets.zero,
+                          tooltip: 'Remove photo',
+                          onPressed: _editable
+                              ? () {
+                                  setState(() {
+                                    _photos.removeAt(index);
+                                    _publishError = null;
+                                  });
+                                }
+                              : null,
+                          icon: const Icon(
                             Icons.close,
-                            color:
-                            Colors.white,
-                            size: 17,
+                            color: Colors.white,
+                            size: 18,
                           ),
                         ),
                       ),
@@ -1405,101 +993,69 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
                   ],
                 ),
               ),
-            if (_photos.length <
-                _maxPhotos)
+            if (_photos.length < _maxPhotos)
               SizedBox(
                 width: itemWidth,
                 height: 155,
                 child: Material(
-                  color: const Color(
-                    0xFFFFFBF8,
-                  ),
-                  borderRadius:
-                  BorderRadius
-                      .circular(7),
+                  color: const Color(0xFFFFFBF8),
+                  borderRadius: BorderRadius.circular(7),
                   child: InkWell(
-                    borderRadius:
-                    BorderRadius
-                        .circular(7),
-                    onTap:
-                    _picking ||
-                        _publishing ||
-                        _published
-                        ? null
-                        : _pickPhotos,
+                    borderRadius: BorderRadius.circular(7),
+                    onTap: _editable ? _pickPhotos : null,
                     child: Container(
-                      decoration:
-                      BoxDecoration(
-                        borderRadius:
-                        BorderRadius
-                            .circular(7),
-                        border:
-                        Border.all(
-                          color:
-                          const Color(
-                            0xFFE2CEC0,
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(7),
+                        border: Border.all(color: const Color(0xFFE2CEC0)),
+                      ),
+                      child: Center(
+                        child: SingleChildScrollView(
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              if (_picking)
+                                const SizedBox(
+                                  width: 28,
+                                  height: 28,
+                                  child: CircularProgressIndicator(
+                                    color: _primary,
+                                    strokeWidth: 2,
+                                  ),
+                                )
+                              else
+                                const Icon(
+                                  Icons.add_photo_alternate_outlined,
+                                  color: _primary,
+                                  size: 40,
+                                ),
+                              const SizedBox(height: 9),
+                              Text(
+                                _picking ? 'Selecting...' : 'Tap to add photos',
+                                textAlign: TextAlign.center,
+                                style: const TextStyle(
+                                  color: _primary,
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              const Text(
+                                'JPG, PNG · Max 5 MB each',
+                                textAlign: TextAlign.center,
+                                style: TextStyle(color: _muted, fontSize: 11),
+                              ),
+                              const SizedBox(height: 3),
+                              Text(
+                                '${_photos.length}/$_maxPhotos photos',
+                                style: const TextStyle(
+                                  color: _muted,
+                                  fontSize: 11,
+                                ),
+                              ),
+                            ],
                           ),
                         ),
-                      ),
-                      child: Column(
-                        mainAxisAlignment:
-                        MainAxisAlignment
-                            .center,
-                        children:
-                        <Widget>[
-                          if (_picking)
-                            const SizedBox(
-                              width: 28,
-                              height: 28,
-                              child:
-                              CircularProgressIndicator(
-                                color:
-                                _primary,
-                                strokeWidth:
-                                2,
-                              ),
-                            )
-                          else
-                            const Icon(
-                              Icons
-                                  .add_photo_alternate_outlined,
-                              color:
-                              _primary,
-                              size: 40,
-                            ),
-                          const SizedBox(
-                            height: 9,
-                          ),
-                          Text(
-                            _picking
-                                ? 'Selecting...'
-                                : 'Tap to add photos',
-                            style:
-                            const TextStyle(
-                              color:
-                              _primary,
-                              fontSize:
-                              12,
-                              fontWeight:
-                              FontWeight
-                                  .w500,
-                            ),
-                          ),
-                          const SizedBox(
-                            height: 3,
-                          ),
-                          const Text(
-                            'JPG, PNG (Max 5MB)',
-                            style:
-                            TextStyle(
-                              color:
-                              Color(
-                                0xFF9B8F87,
-                              ),
-                              fontSize: 9,
-                            ),
-                          ),
-                        ],
                       ),
                     ),
                   ),
@@ -1512,69 +1068,37 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
   }
 
   Widget _captionField() {
+    final border = OutlineInputBorder(
+      borderRadius: BorderRadius.circular(7),
+      borderSide: const BorderSide(color: _border),
+    );
+
     return TextField(
       controller: _caption,
-      enabled:
-      !_publishing && !_published,
+      enabled: _editable,
       maxLength: 500,
       minLines: 4,
       maxLines: 6,
-      style: const TextStyle(
-        color: _heading,
-        fontSize: 12,
-      ),
+      style: const TextStyle(color: _heading, fontSize: 13),
       decoration: InputDecoration(
-        hintText:
-        'Share your experience, thoughts or memories...',
-        hintStyle:
-        const TextStyle(
-          color: Color(
-            0xFF8290A2,
-          ),
-          fontSize: 11,
-        ),
+        hintText: 'Share your experience, thoughts or memories...',
+        hintStyle: const TextStyle(color: Color(0xFF8290A2), fontSize: 12),
         filled: true,
         fillColor: Colors.white,
-        counterStyle:
-        const TextStyle(
-          color: Color(
-            0xFF65758B,
-          ),
-          fontSize: 10,
-        ),
-        border: OutlineInputBorder(
-          borderRadius:
-          BorderRadius.circular(7),
-          borderSide:
-          const BorderSide(
-            color: _border,
-          ),
-        ),
-        enabledBorder:
-        OutlineInputBorder(
-          borderRadius:
-          BorderRadius.circular(7),
-          borderSide:
-          const BorderSide(
-            color: _border,
-          ),
-        ),
-        focusedBorder:
-        OutlineInputBorder(
-          borderRadius:
-          BorderRadius.circular(7),
-          borderSide:
-          const BorderSide(
-            color: _primary,
-          ),
+        counterStyle: const TextStyle(color: _muted, fontSize: 12),
+        border: border,
+        enabledBorder: border,
+        disabledBorder: border,
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(7),
+          borderSide: const BorderSide(color: _primary),
         ),
       ),
     );
   }
 
   Widget _tagChips() {
-    const List<String> availableTags =
-    <String>[
+    const List<String> availableTags = [
       'History',
       'Culture',
       'SriLanka',
@@ -1584,53 +1108,35 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
     return Wrap(
       spacing: 8,
       runSpacing: 8,
-      children: <Widget>[
-        for (final String tag
-        in availableTags)
+      children: [
+        for (final tag in availableTags)
           FilterChip(
             showCheckmark: false,
             label: Text('#$tag'),
-            selected:
-            _tags.contains(tag),
-            backgroundColor:
-            const Color(
-              0xFFF5E8E0,
-            ),
-            selectedColor:
-            const Color(
-              0xFFE4C5B2,
-            ),
+            selected: _tags.contains(tag),
+            backgroundColor: const Color(0xFFF5E8E0),
+            selectedColor: const Color(0xFFE4C5B2),
             side: BorderSide.none,
-            shape:
-            RoundedRectangleBorder(
-              borderRadius:
-              BorderRadius
-                  .circular(20),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(20),
             ),
-            labelStyle:
-            const TextStyle(
+            labelStyle: const TextStyle(
               color: _primary,
-              fontSize: 10,
-              fontWeight:
-              FontWeight.w500,
+              fontSize: 12,
+              fontWeight: FontWeight.w500,
             ),
-            onSelected:
-            _publishing ||
-                _published
-                ? null
-                : (
-                bool selected,
-                ) {
-              setState(() {
-                if (selected) {
-                  _tags.add(tag);
-                } else {
-                  _tags.remove(
-                    tag,
-                  );
-                }
-              });
-            },
+            onSelected: _editable
+                ? (selected) {
+                    setState(() {
+                      if (selected) {
+                        _tags.add(tag);
+                      } else {
+                        _tags.remove(tag);
+                      }
+                      _publishError = null;
+                    });
+                  }
+                : null,
           ),
       ],
     );
@@ -1641,200 +1147,108 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
       width: double.infinity,
       height: 48,
       child: FilledButton(
-        style:
-        FilledButton.styleFrom(
+        style: FilledButton.styleFrom(
           backgroundColor: _primary,
-          foregroundColor:
-          Colors.white,
-          disabledBackgroundColor:
-          const Color(
-            0xFFB99784,
-          ),
-          shape:
-          RoundedRectangleBorder(
-            borderRadius:
-            BorderRadius
-                .circular(8),
-          ),
+          foregroundColor: Colors.white,
+          disabledBackgroundColor: const Color(0xFFB99784),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
         ),
-        onPressed:
-        _publishing ||
-            _picking ||
-            _published
-            ? null
-            : _publish,
+        onPressed: _editable ? _publish : null,
         child: _publishing
             ? const Row(
-          mainAxisSize:
-          MainAxisSize.min,
-          children: <Widget>[
-            SizedBox(
-              width: 18,
-              height: 18,
-              child:
-              CircularProgressIndicator(
-                strokeWidth: 2,
-                color:
-                Colors.white,
-              ),
-            ),
-            SizedBox(
-              width: 10,
-            ),
-            Text(
-              'Publishing...',
-            ),
-          ],
-        )
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: Colors.white,
+                    ),
+                  ),
+                  SizedBox(width: 10),
+                  Text('Publishing...'),
+                ],
+              )
             : Row(
-          mainAxisSize:
-          MainAxisSize.min,
-          children: <Widget>[
-            Text(
-              _published
-                  ? 'Published'
-                  : 'Share',
-              style:
-              const TextStyle(
-                fontSize: 17,
-                fontWeight:
-                FontWeight
-                    .w700,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    _published ? 'Published' : 'Share',
+                    style: const TextStyle(
+                      fontSize: 17,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  if (!_published) ...[
+                    const SizedBox(width: 6),
+                    const Icon(Icons.arrow_forward, size: 20),
+                  ],
+                ],
               ),
-            ),
-            if (!_published) ...<Widget>[
-              const SizedBox(
-                width: 6,
-              ),
-              const Icon(
-                Icons
-                    .arrow_forward,
-                size: 20,
-              ),
-            ],
-          ],
-        ),
       ),
     );
   }
 
   Widget _bottomNavigation() {
-    return NavigationBar(
-      selectedIndex: 3,
-      height: 68,
-      backgroundColor:
-      Colors.white,
-      indicatorColor:
-      Colors.transparent,
-      labelBehavior:
-      NavigationDestinationLabelBehavior
-          .alwaysShow,
-      onDestinationSelected:
-          (int index) {
-        switch (index) {
-          case 0:
-            _navigate(
-              widget.onHome,
-              'Home',
-            );
-            break;
-
-          case 1:
-            _navigate(
-              widget.onExplore,
-              'Explore',
-            );
-            break;
-
-          case 2:
-            _navigate(
-              widget.onTours,
-              'Tours',
-            );
-            break;
-
-          case 3:
-            _navigate(
-              widget.onCommunity,
-              'Community',
-            );
-            break;
-
-          case 4:
-            _navigate(
-              widget.onProfile,
-              'Profile',
-            );
-            break;
-        }
-      },
-      destinations:
-      const <NavigationDestination>[
-        NavigationDestination(
-          icon: Icon(
-            Icons.home_outlined,
-            color: Color(
-              0xFF65758B,
-            ),
+    return NavigationBarTheme(
+      data: NavigationBarThemeData(
+        labelTextStyle: WidgetStateProperty.resolveWith<TextStyle>(
+          (states) => TextStyle(
+            fontSize: 11,
+            color: states.contains(WidgetState.selected) ? _primary : _muted,
           ),
-          selectedIcon: Icon(
-            Icons.home,
-            color: _primary,
-          ),
-          label: 'Home',
         ),
-        NavigationDestination(
-          icon: Icon(
-            Icons.search,
-            color: Color(
-              0xFF65758B,
-            ),
+      ),
+      child: NavigationBar(
+        selectedIndex: 3,
+        height: 68,
+        backgroundColor: Colors.white,
+        indicatorColor: _surface,
+        labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
+        onDestinationSelected: (index) {
+          switch (index) {
+            case 0:
+              _navigate(widget.onHome, 'Home');
+              break;
+            case 1:
+              _navigate(widget.onExplore, 'Explore');
+              break;
+            case 2:
+              _navigate(widget.onTours, 'Tours');
+              break;
+            case 3:
+              _navigate(widget.onCommunity, 'Community');
+              break;
+            case 4:
+              _navigate(widget.onProfile, 'Profile');
+              break;
+          }
+        },
+        destinations: const [
+          NavigationDestination(
+            icon: Icon(Icons.home_outlined, color: _muted),
+            label: 'Home',
           ),
-          selectedIcon: Icon(
-            Icons.search,
-            color: _primary,
+          NavigationDestination(
+            icon: Icon(Icons.search, color: _muted),
+            label: 'Explore',
           ),
-          label: 'Explore',
-        ),
-        NavigationDestination(
-          icon: Icon(
-            Icons
-                .add_circle_outline,
-            color: Color(
-              0xFF65758B,
-            ),
+          NavigationDestination(
+            icon: Icon(Icons.add_circle_outline, color: _muted),
+            label: 'Tours',
           ),
-          selectedIcon: Icon(
-            Icons.add_circle,
-            color: _primary,
+          NavigationDestination(
+            icon: Icon(Icons.groups_outlined, color: _muted),
+            selectedIcon: Icon(Icons.groups, color: _primary),
+            label: 'Community',
           ),
-          label: 'Tours',
-        ),
-        NavigationDestination(
-          icon: Icon(
-            Icons.groups_outlined,
-            color: _primary,
+          NavigationDestination(
+            icon: Icon(Icons.person_outline, color: _muted),
+            label: 'Profile',
           ),
-          selectedIcon: Icon(
-            Icons.groups,
-            color: _primary,
-          ),
-          label: 'Community',
-        ),
-        NavigationDestination(
-          icon: Icon(
-            Icons.person_outline,
-            color: Color(
-              0xFF65758B,
-            ),
-          ),
-          selectedIcon: Icon(
-            Icons.person,
-            color: _primary,
-          ),
-          label: 'Profile',
-        ),
-      ],
+        ],
+      ),
     );
   }
 }
@@ -1852,224 +1266,133 @@ class _SelectedPhoto {
 }
 
 class _PlacePicker extends StatefulWidget {
-  const _PlacePicker({
-    required this.places,
-  });
+  const _PlacePicker({required this.places});
 
-  final List<Map<String, dynamic>>
-  places;
+  final List<Map<String, dynamic>> places;
 
   @override
-  State<_PlacePicker> createState() =>
-      _PlacePickerState();
+  State<_PlacePicker> createState() => _PlacePickerState();
 }
 
-class _PlacePickerState
-    extends State<_PlacePicker> {
+class _PlacePickerState extends State<_PlacePicker> {
   String _query = '';
 
   @override
-  Widget build(
-      BuildContext context,
-      ) {
-    final String query =
-    _query.trim().toLowerCase();
+  Widget build(BuildContext context) {
+    final String query = _query.trim().toLowerCase();
 
-    final List<Map<String, dynamic>>
-    results =
-    widget.places.where(
-          (
-          Map<String, dynamic> place,
-          ) {
-        final String name =
-            place['name']
-                ?.toString()
-                .toLowerCase() ??
-                '';
+    final results = widget.places.where((place) {
+      final String name = place['name']?.toString().toLowerCase() ?? '';
+      final String city = place['city']?.toString().toLowerCase() ?? '';
 
-        final String city =
-            place['city']
-                ?.toString()
-                .toLowerCase() ??
-                '';
+      return name.contains(query) || city.contains(query);
+    }).toList();
 
-        return name.contains(query) ||
-            city.contains(query);
-      },
-    ).toList();
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final double availableHeight = constraints.maxHeight.isFinite
+            ? constraints.maxHeight
+            : MediaQuery.sizeOf(context).height;
 
-    return Padding(
-      padding: EdgeInsets.only(
-        bottom:
-        MediaQuery.of(context)
-            .viewInsets
-            .bottom,
-      ),
-      child: SizedBox(
-        height:
-        MediaQuery.of(context)
-            .size
-            .height *
-            0.72,
-        child: Column(
-          children: <Widget>[
-            const SizedBox(
-              height: 8,
-            ),
-            Container(
-              width: 42,
-              height: 4,
-              decoration:
-              BoxDecoration(
-                color:
-                const Color(
-                  0xFFD5CCC5,
-                ),
-                borderRadius:
-                BorderRadius
-                    .circular(8),
-              ),
-            ),
-            ListTile(
-              title: Text(
-                'Select Historical Place',
-                style: GoogleFonts
-                    .playfairDisplay(
-                  color:
-                  _CreatePostScreenState
-                      ._heading,
-                  fontSize: 20,
-                  fontWeight:
-                  FontWeight.w600,
-                ),
-              ),
-              trailing:
-              IconButton(
-                tooltip: 'Close',
-                onPressed: () {
-                  Navigator.pop(
-                    context,
-                  );
-                },
-                icon:
-                const Icon(
-                  Icons.close,
-                ),
-              ),
-            ),
-            Padding(
-              padding:
-              const EdgeInsets
-                  .symmetric(
-                horizontal: 16,
-              ),
-              child: TextField(
-                onChanged:
-                    (String value) {
-                  setState(() {
-                    _query = value;
-                  });
-                },
-                decoration:
-                InputDecoration(
-                  hintText:
-                  'Search places or cities...',
-                  prefixIcon:
-                  const Icon(
-                    Icons.search,
-                  ),
-                  filled: true,
-                  fillColor:
-                  Colors.white,
-                  border:
-                  OutlineInputBorder(
-                    borderRadius:
-                    BorderRadius
-                        .circular(8),
+        final double keyboardHeight = MediaQuery.viewInsetsOf(context).bottom;
+
+        final double height = (availableHeight - keyboardHeight)
+            .clamp(0.0, availableHeight)
+            .toDouble();
+
+        return Padding(
+          padding: EdgeInsets.only(bottom: keyboardHeight),
+          child: SizedBox(
+            height: height * 0.85,
+            child: Column(
+              children: [
+                const SizedBox(height: 8),
+                Container(
+                  width: 42,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFD5CCC5),
+                    borderRadius: BorderRadius.circular(8),
                   ),
                 ),
-              ),
-            ),
-            const SizedBox(
-              height: 10,
-            ),
-            Expanded(
-              child: results.isEmpty
-                  ? const Center(
-                child: Text(
-                  'No places found.',
+                ListTile(
+                  title: Text(
+                    'Select Historical Place',
+                    style: GoogleFonts.playfairDisplay(
+                      color: _CreatePostScreenState._heading,
+                      fontSize: 20,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  trailing: IconButton(
+                    tooltip: 'Close',
+                    onPressed: () => Navigator.pop(context),
+                    icon: const Icon(Icons.close),
+                  ),
                 ),
-              )
-                  : ListView.separated(
-                itemCount:
-                results.length,
-                separatorBuilder:
-                    (
-                    _,
-                    int index,
-                    ) {
-                  return const Divider(
-                    height: 1,
-                  );
-                },
-                itemBuilder:
-                    (
-                    BuildContext
-                    context,
-                    int index,
-                    ) {
-                  final Map<String,
-                      dynamic>
-                  place =
-                  results[index];
-
-                  return ListTile(
-                    leading:
-                    const CircleAvatar(
-                      backgroundColor:
-                      _CreatePostScreenState
-                          ._surface,
-                      child: Icon(
-                        Icons
-                            .account_balance,
-                        color:
-                        _CreatePostScreenState
-                            ._primary,
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: TextField(
+                    onChanged: (value) {
+                      setState(() {
+                        _query = value;
+                      });
+                    },
+                    decoration: InputDecoration(
+                      hintText: 'Search places or cities...',
+                      prefixIcon: const Icon(Icons.search),
+                      filled: true,
+                      fillColor: Colors.white,
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: const BorderSide(
+                          color: _CreatePostScreenState._border,
+                        ),
                       ),
                     ),
-                    title: Text(
-                      place['name']
-                          ?.toString() ??
-                          '',
-                    ),
-                    subtitle: Text(
-                      place['city']
-                          ?.toString() ??
-                          '',
-                    ),
-                    trailing:
-                    const Icon(
-                      Icons
-                          .chevron_right,
-                      color:
-                      _CreatePostScreenState
-                          ._primary,
-                    ),
-                    onTap: () {
-                      Navigator.pop<
-                          Map<String,
-                              dynamic>>(
-                        context,
-                        place,
-                      );
-                    },
-                  );
-                },
-              ),
+                  ),
+                ),
+                const SizedBox(height: 10),
+                Expanded(
+                  child: results.isEmpty
+                      ? const Center(child: Text('No places found.'))
+                      : ListView.separated(
+                          itemCount: results.length,
+                          separatorBuilder: (context, index) =>
+                              const Divider(height: 1),
+                          itemBuilder: (context, index) {
+                            final place = results[index];
+
+                            return ListTile(
+                              leading: const CircleAvatar(
+                                backgroundColor:
+                                    _CreatePostScreenState._surface,
+                                child: Icon(
+                                  Icons.account_balance,
+                                  color: _CreatePostScreenState._primary,
+                                ),
+                              ),
+                              title: Text(place['name']?.toString() ?? ''),
+                              subtitle: Text(place['city']?.toString() ?? ''),
+                              trailing: const Icon(
+                                Icons.chevron_right,
+                                color: _CreatePostScreenState._primary,
+                              ),
+                              onTap: () {
+                                Navigator.pop<Map<String, dynamic>>(
+                                  context,
+                                  place,
+                                );
+                              },
+                            );
+                          },
+                        ),
+                ),
+              ],
             ),
-          ],
-        ),
-      ),
+          ),
+        );
+      },
     );
   }
 }
