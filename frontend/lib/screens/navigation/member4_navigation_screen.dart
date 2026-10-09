@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_map/flutter_map.dart';
@@ -53,6 +54,7 @@ class _Member4NavigationScreenState extends State<Member4NavigationScreen> {
   List<LatLng> _route = [];
   List<Map<String, dynamic>> _steps = [];
   double? _meters, _seconds;
+  bool _directDistanceOnly = false;
   int _request = 0;
 
   @override
@@ -116,12 +118,20 @@ class _Member4NavigationScreenState extends State<Member4NavigationScreen> {
     if (_stops.isNotEmpty && _error == null) await _calculateRoute();
   }
 
-  Future<void> _location() async {
+  Future<bool> _location({bool recalculateRoute = false}) async {
     setState(() {
       _busy = true;
       _error = null;
     });
+    var hasLocation = false;
     try {
+      if (kIsWeb &&
+          Uri.base.scheme != 'https' &&
+          Uri.base.host != 'localhost') {
+        throw StateError(
+          'Phone browser location needs HTTPS. Use the Android app for GPS testing, or serve the web preview over HTTPS.',
+        );
+      }
       if (!await Geolocator.isLocationServiceEnabled())
         throw StateError('Turn on location services and refresh.');
       var permission = await Geolocator.checkPermission();
@@ -137,8 +147,9 @@ class _Member4NavigationScreenState extends State<Member4NavigationScreen> {
           timeLimit: Duration(seconds: 20),
         ),
       );
-      if (!mounted) return;
+      if (!mounted) return false;
       setState(() => _position = position);
+      hasLocation = true;
       await _gps?.cancel();
       _gps =
           Geolocator.getPositionStream(
@@ -160,6 +171,20 @@ class _Member4NavigationScreenState extends State<Member4NavigationScreen> {
     } finally {
       if (mounted) setState(() => _busy = false);
     }
+    if (hasLocation && recalculateRoute && mounted) {
+      await _calculateRoute();
+    }
+    return hasLocation;
+  }
+
+  Future<void> _openLocation() async {
+    _go(_Page.location);
+    await _location(recalculateRoute: _journey != null);
+  }
+
+  Future<void> _openDirections() async {
+    _go(_Page.navigation);
+    await _calculateRoute(ensureCurrentLocation: true);
   }
 
   void _updatePosition(Position next) {
@@ -184,9 +209,24 @@ class _Member4NavigationScreenState extends State<Member4NavigationScreen> {
     setState(() => _position = next);
   }
 
-  Future<void> _calculateRoute() async {
+  Future<void> _calculateRoute({bool ensureCurrentLocation = false}) async {
     if (_stops.isEmpty) return;
+
+    if (ensureCurrentLocation &&
+        _journey != null &&
+        !_journey!.isComplete &&
+        _position == null) {
+      final locationReady = await _location(recalculateRoute: false);
+      if (!locationReady) return;
+    }
+
     final request = ++_request;
+    final points = <LatLng>[
+      if (_position != null && _journey != null)
+        LatLng(_position!.latitude, _position!.longitude),
+      ..._stops.skip(_journey?.completed ?? 0).map((s) => s.point),
+    ];
+
     setState(() {
       _busy = true;
       _error = null;
@@ -194,17 +234,14 @@ class _Member4NavigationScreenState extends State<Member4NavigationScreen> {
       _steps = [];
       _meters = null;
       _seconds = null;
+      _directDistanceOnly = false;
     });
     try {
-      final points = <LatLng>[
-        if (_position != null && _journey != null)
-          LatLng(_position!.latitude, _position!.longitude),
-        ..._stops.skip(_journey?.completed ?? 0).map((s) => s.point),
-      ];
       if (points.length < 2) {
         _route = points;
         if (_journey != null && !_journey!.isComplete) {
-          _error = 'Refresh your location to get directions to the final stop.';
+          _error =
+              'Refresh your location to get directions and distance to the next stop.';
         }
         return;
       }
@@ -237,17 +274,32 @@ class _Member4NavigationScreenState extends State<Member4NavigationScreen> {
       _meters = (route['distance'] as num).toDouble();
       _seconds = (route['duration'] as num).toDouble();
     } catch (_) {
-      if (mounted && request == _request)
-        _error =
-            'Directions unavailable. Check your connection and recalculate.';
+      if (mounted && request == _request) {
+        final directMeters = _directDistanceMeters(points);
+        _meters = directMeters;
+        _seconds = null;
+        _directDistanceOnly = directMeters > 0;
+        _error = 'Road directions unavailable. Showing direct distance only.';
+      }
     } finally {
       if (mounted && request == _request) setState(() => _busy = false);
     }
   }
 
+  double _directDistanceMeters(List<LatLng> points) {
+    if (points.length < 2) return 0;
+    const distance = Distance();
+    var total = 0.0;
+    for (var i = 0; i < points.length - 1; i++) {
+      total += distance.as(LengthUnit.Meter, points[i], points[i + 1]);
+    }
+    return total;
+  }
+
   Future<void> _begin() async {
     if (_stops.isEmpty || _busy) return;
     setState(() => _busy = true);
+    var started = false;
     final now = DateTime.now();
     final journey = HeritageJourney(
       id: '${now.microsecondsSinceEpoch}',
@@ -262,10 +314,14 @@ class _Member4NavigationScreenState extends State<Member4NavigationScreen> {
           _journey = journey;
           _page = _Page.active;
         });
+      started = true;
     } catch (_) {
       _message('Could not save your tour. Try again.');
     } finally {
       if (mounted) setState(() => _busy = false);
+    }
+    if (started && mounted) {
+      await _location(recalculateRoute: true);
     }
   }
 
@@ -286,7 +342,9 @@ class _Member4NavigationScreenState extends State<Member4NavigationScreen> {
       setState(
         () => _page = journey.isComplete ? _Page.complete : _Page.active,
       );
-      if (!journey.isComplete) await _calculateRoute();
+      if (!journey.isComplete) {
+        await _calculateRoute(ensureCurrentLocation: true);
+      }
     } catch (_) {
       journey.completed = previous;
       journey.finishedAt = finished;
@@ -517,7 +575,7 @@ class _Member4NavigationScreenState extends State<Member4NavigationScreen> {
     Row(
       children: [
         _metric(
-          'Road distance',
+          _directDistanceOnly ? 'Direct distance' : 'Road distance',
           _meters == null
               ? 'Unavailable'
               : '${(_meters! / 1000).toStringAsFixed(1)} km',
@@ -529,9 +587,11 @@ class _Member4NavigationScreenState extends State<Member4NavigationScreen> {
       ],
     ),
     const SizedBox(height: 8),
-    const Text(
-      'Driving estimates exclude time spent visiting places.',
-      style: TextStyle(fontSize: 11, color: Colors.brown),
+    Text(
+      _directDistanceOnly
+          ? 'Direct distance is an estimate only. Refresh GPS and recalculate for road directions.'
+          : 'Driving estimates exclude time spent visiting places.',
+      style: const TextStyle(fontSize: 11, color: Colors.brown),
     ),
   ];
   List<Widget> _body() {
@@ -556,11 +616,9 @@ class _Member4NavigationScreenState extends State<Member4NavigationScreen> {
           ))
             _card([_heading(stop.name), Text(stop.description)]),
           if (_stops.isNotEmpty) _button('Start Tour', () => _go(_Page.start)),
-          _button(
-            'Current Location',
-            () => _go(_Page.location),
-            secondary: true,
-          ),
+          _button('Current Location', () {
+            _openLocation();
+          }, secondary: true),
         ];
       case _Page.location:
         return [
@@ -575,7 +633,9 @@ class _Member4NavigationScreenState extends State<Member4NavigationScreen> {
             ] else
               const Text('Allow location access to see your actual position.'),
           ]),
-          _button('Refresh Location', _location),
+          _button('Refresh Location', () {
+            _location(recalculateRoute: _journey != null);
+          }),
           _button('Location Settings', () async {
             await Geolocator.openLocationSettings();
           }, secondary: true),
@@ -616,16 +676,13 @@ class _Member4NavigationScreenState extends State<Member4NavigationScreen> {
           if (i + 1 < _stops.length)
             _card([const Text('NEXT STOP'), _heading(_stops[i + 1].name)]),
           _button('View Directions', () {
-            _go(_Page.navigation);
-            _calculateRoute();
+            _openDirections();
           }),
           _button('Mark Stop Visited', _checkpoint),
           _button('Tour Progress', () => _go(_Page.progress), secondary: true),
-          _button(
-            'Current Location',
-            () => _go(_Page.location),
-            secondary: true,
-          ),
+          _button('Current Location', () {
+            _openLocation();
+          }, secondary: true),
         ];
       case _Page.navigation:
         return [
@@ -645,8 +702,12 @@ class _Member4NavigationScreenState extends State<Member4NavigationScreen> {
                 '${((step['distance'] as num) / 1000).toStringAsFixed(2)} km',
               ),
             ]),
-          _button('Recalculate Route', _calculateRoute),
-          _button('Refresh Location', _location, secondary: true),
+          _button('Recalculate Route', () {
+            _calculateRoute(ensureCurrentLocation: true);
+          }),
+          _button('Refresh Location', () {
+            _location(recalculateRoute: true);
+          }, secondary: true),
           if (journey != null)
             _button(
               'Back to Active Tour',
@@ -728,7 +789,9 @@ class _Member4NavigationScreenState extends State<Member4NavigationScreen> {
                   _name = saved.name;
                   _page = saved.isComplete ? _Page.complete : _Page.active;
                 });
-                if (!saved.isComplete) _calculateRoute();
+                if (!saved.isComplete) {
+                  _calculateRoute(ensureCurrentLocation: true);
+                }
               }),
               Row(
                 children: [
@@ -891,7 +954,15 @@ class _Member4NavigationScreenState extends State<Member4NavigationScreen> {
                   _card([
                     Text(_error!, style: const TextStyle(color: Colors.red)),
                     TextButton(
-                      onPressed: _busy ? null : _calculateRoute,
+                      onPressed: _busy
+                          ? null
+                          : () {
+                              if (_page == _Page.navigation) {
+                                _openDirections();
+                              } else {
+                                _calculateRoute();
+                              }
+                            },
                       child: const Text('Retry directions'),
                     ),
                   ]),

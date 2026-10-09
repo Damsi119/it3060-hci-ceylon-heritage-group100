@@ -6,6 +6,7 @@ import com.ceylonheritage.backend.entities.PostLike;
 import com.ceylonheritage.backend.entities.User;
 import com.ceylonheritage.backend.repository.PostLikeRepository;
 import com.ceylonheritage.backend.repository.UserRepository;
+import com.ceylonheritage.backend.service.NotificationService;
 import com.ceylonheritage.backend.service.PostLikeService;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.LockModeType;
@@ -14,6 +15,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
+import java.util.Objects;
+
 @Service
 @Transactional(readOnly = true)
 public class PostLikeServiceImpl implements PostLikeService {
@@ -21,15 +24,18 @@ public class PostLikeServiceImpl implements PostLikeService {
     private final PostLikeRepository postLikeRepository;
     private final UserRepository userRepository;
     private final EntityManager entityManager;
+    private final NotificationService notificationService;
 
     public PostLikeServiceImpl(
             PostLikeRepository postLikeRepository,
             UserRepository userRepository,
-            EntityManager entityManager
+            EntityManager entityManager,
+            NotificationService notificationService
     ) {
         this.postLikeRepository = postLikeRepository;
         this.userRepository = userRepository;
         this.entityManager = entityManager;
+        this.notificationService = notificationService;
     }
 
     @Override
@@ -42,6 +48,7 @@ public class PostLikeServiceImpl implements PostLikeService {
         Post post = requirePost(postId, true);
 
         // Repeated requests keep a single like.
+        boolean created = false;
         if (!postLikeRepository.existsByPost_IdAndUser_Id(
                 postId,
                 user.getId()
@@ -51,6 +58,19 @@ public class PostLikeServiceImpl implements PostLikeService {
             like.setUser(user);
 
             postLikeRepository.saveAndFlush(like);
+            created = true;
+        }
+
+        if (created
+                && !Objects.equals(post.getAuthor().getId(), user.getId())) {
+            notificationService.createForUser(
+                    post.getAuthor(),
+                    "New like on your post",
+                    getUserName(user)
+                            + " liked your "
+                            + post.getHistoricalPlace().getName()
+                            + " post."
+            );
         }
 
         return buildStatus(postId, user.getId());
@@ -162,5 +182,22 @@ public class PostLikeServiceImpl implements PostLikeService {
         }
 
         return post;
+    }
+
+
+    private String getUserName(User user) {
+        String firstName = user.getFirstName() == null
+                ? ""
+                : user.getFirstName().trim();
+
+        String lastName = user.getLastName() == null
+                ? ""
+                : user.getLastName().trim();
+
+        String fullName = (firstName + " " + lastName).trim();
+
+        return fullName.isBlank()
+                ? user.getUsername()
+                : fullName;
     }
 }

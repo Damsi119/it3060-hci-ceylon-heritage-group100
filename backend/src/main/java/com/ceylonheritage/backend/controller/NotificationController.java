@@ -36,6 +36,19 @@ public class NotificationController {
     }
 
 
+    @GetMapping("/unread-count")
+    public ResponseEntity<NotificationDto.UnreadCountResponse> getUnreadCount(
+            Authentication authentication
+    ) {
+
+        return ResponseEntity.ok(
+                notificationService.getUnreadCount(
+                        authentication.getName()
+                )
+        );
+    }
+
+
     @PutMapping("/{notificationId}/read")
     public ResponseEntity<NotificationDto.NotificationResponse> markRead(
             Authentication authentication,

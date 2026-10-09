@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../../core/constants/api_config.dart';
 import '../../models/user_profile.dart';
 import '../../services/api_client.dart';
 import '../../services/user_service.dart';
@@ -90,6 +91,22 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
     if (_strength <= 2) return 'Fair';
     if (_strength == 3) return 'Good';
     return 'Strong';
+  }
+
+  String get _initial {
+    final name = widget.user.displayName.trim();
+    return name.isEmpty ? 'U' : name[0].toUpperCase();
+  }
+
+  String? _absoluteImageUrl(String? value) {
+    final clean = value?.trim();
+    if (clean == null || clean.isEmpty) return null;
+    if (clean.startsWith('http://') || clean.startsWith('https://')) {
+      return clean;
+    }
+    final baseUrl = ApiConfig.baseUrl.replaceFirst(RegExp(r'/+$'), '');
+    final path = clean.startsWith('/') ? clean : '/$clean';
+    return '$baseUrl$path';
   }
 
   Future<void> _save() async {
@@ -196,24 +213,7 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
               child: Stack(
                 fit: StackFit.expand,
                 children: [
-                  Image.asset(
-                    'assets/images/heritage_login_banner.webp',
-                    fit: BoxFit.cover,
-                    alignment: const Alignment(0.25, 0),
-                    errorBuilder: (_, _, _) => const DecoratedBox(
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                          colors: [
-                            Color(0xFFCADDED),
-                            Color(0xFFFFD7B0),
-                            Color(0xFFAE6030),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
+                  _buildCoverImage(),
                   const DecoratedBox(
                     decoration: BoxDecoration(
                       gradient: LinearGradient(
@@ -322,10 +322,29 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
                     ),
                   ],
                 ),
-                child: const Icon(
-                  Icons.lock_reset_rounded,
-                  color: _SecurityColors.coffee,
-                  size: 48,
+                child: Stack(
+                  clipBehavior: Clip.none,
+                  children: [
+                    _buildAvatarImage(102),
+                    Positioned(
+                      right: -2,
+                      bottom: -2,
+                      child: Container(
+                        width: 34,
+                        height: 34,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: _SecurityColors.coffee,
+                          border: Border.all(color: Colors.white, width: 2),
+                        ),
+                        child: const Icon(
+                          Icons.lock_reset_rounded,
+                          color: Colors.white,
+                          size: 18,
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ),
@@ -361,6 +380,63 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildCoverImage() {
+    final coverUrl = _absoluteImageUrl(widget.user.coverImageUrl);
+    if (coverUrl != null) {
+      return Image.network(
+        coverUrl,
+        fit: BoxFit.cover,
+        alignment: Alignment.center,
+        errorBuilder: (_, _, _) => _defaultCoverImage(),
+      );
+    }
+
+    return _defaultCoverImage();
+  }
+
+  Widget _defaultCoverImage() {
+    return const DecoratedBox(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [Color(0xFFCADDED), Color(0xFFFFD7B0), Color(0xFFAE6030)],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildAvatarImage(double size) {
+    final profileUrl = _absoluteImageUrl(widget.user.profileImageUrl);
+    if (profileUrl != null) {
+      return ClipOval(
+        child: Image.network(
+          profileUrl,
+          width: size,
+          height: size,
+          fit: BoxFit.cover,
+          errorBuilder: (_, _, _) => _avatarInitial(),
+        ),
+      );
+    }
+
+    return _avatarInitial();
+  }
+
+  Widget _avatarInitial() {
+    return Center(
+      child: Text(
+        _initial,
+        style: const TextStyle(
+          fontFamily: 'serif',
+          fontSize: 49,
+          fontWeight: FontWeight.w800,
+          color: _SecurityColors.coffee,
+        ),
       ),
     );
   }

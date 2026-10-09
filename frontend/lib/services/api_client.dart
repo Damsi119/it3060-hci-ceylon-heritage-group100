@@ -102,12 +102,10 @@ class ApiClient {
           throw const ApiException('Unsupported request method');
       }
     } on http.ClientException catch (error) {
-      throw ApiException(
-        'Could not connect to ${ApiConfig.baseUrl}. Check that Spring Boot is running and that this address is reachable. (${error.message})',
-      );
+      throw ApiException(_connectionErrorMessage(error.message));
     } catch (error) {
       if (error is ApiException) rethrow;
-      throw ApiException('Request to ${_uri(path)} failed: $error');
+      throw ApiException(_connectionErrorMessage('$error'));
     }
 
     if (response.statusCode == 401 && authenticated && retryAfterRefresh) {
@@ -188,5 +186,14 @@ class ApiClient {
     } catch (_) {
       return false;
     }
+  }
+
+  String _connectionErrorMessage(String detail) {
+    final baseUrl = ApiConfig.baseUrl;
+    final realDeviceHint = baseUrl.contains('10.0.2.2')
+        ? ' 10.0.2.2 works only on the Android emulator. For a real phone, run the app with --dart-define=API_BASE_URL=http://YOUR_PC_WIFI_IP:8081.'
+        : '';
+
+    return 'Could not connect to $baseUrl. Check that Spring Boot is running and that this address is reachable.$realDeviceHint ($detail)';
   }
 }

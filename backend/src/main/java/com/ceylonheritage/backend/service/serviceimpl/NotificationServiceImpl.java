@@ -4,6 +4,7 @@ import com.ceylonheritage.backend.Dtos.NotificationDto;
 import com.ceylonheritage.backend.Dtos.UserDto;
 import com.ceylonheritage.backend.entities.Notification;
 import com.ceylonheritage.backend.entities.User;
+import com.ceylonheritage.backend.enums.Role;
 import com.ceylonheritage.backend.exception.UserException;
 import com.ceylonheritage.backend.repository.NotificationRepository;
 import com.ceylonheritage.backend.repository.UserRepository;
@@ -40,6 +41,19 @@ public class NotificationServiceImpl implements NotificationService {
                         .stream()
                         .map(this::toResponse)
                         .toList()
+        );
+    }
+
+
+    @Override
+    public NotificationDto.UnreadCountResponse getUnreadCount(
+            String username
+    ) {
+
+        User user = getUser(username);
+
+        return new NotificationDto.UnreadCountResponse(
+                notificationRepository.countByUserAndReadFalse(user)
         );
     }
 
@@ -105,6 +119,49 @@ public class NotificationServiceImpl implements NotificationService {
     }
 
 
+    @Override
+    @Transactional
+    public NotificationDto.NotificationResponse createForUser(
+            User user,
+            String title,
+            String message
+    ) {
+
+        if (user == null || user.isDeleted()) {
+            throw new UserException("Notification user not found");
+        }
+
+        Notification notification = notificationRepository.save(
+                Notification.builder()
+                        .user(user)
+                        .title(clean(title, "Notification"))
+                        .message(clean(message, "You have a new update."))
+                        .build()
+        );
+
+        return toResponse(notification);
+    }
+
+
+    @Override
+    @Transactional
+    public void createForRole(
+            Role role,
+            String title,
+            String message
+    ) {
+
+        if (role == null) {
+            return;
+        }
+
+        userRepository.findByRoleAndDeletedFalse(role)
+                .stream()
+                .filter(User::isEnabled)
+                .forEach(user -> createForUser(user, title, message));
+    }
+
+
     private User getUser(String username) {
 
         return userRepository
@@ -122,6 +179,16 @@ public class NotificationServiceImpl implements NotificationService {
                 .orElseThrow(() ->
                         new UserException("Notification not found")
                 );
+    }
+
+
+    private String clean(String value, String fallback) {
+
+        if (value == null || value.trim().isBlank()) {
+            return fallback;
+        }
+
+        return value.trim();
     }
 
 

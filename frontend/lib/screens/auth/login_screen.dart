@@ -4,6 +4,7 @@ import '../../models/auth_response.dart';
 import '../../services/api_client.dart';
 import '../../services/auth_service.dart';
 import '../../services/google_auth_service.dart';
+import '../../services/notification_center.dart';
 import '../../widgets/heritage_logo.dart';
 import '../../widgets/heritage_message.dart';
 import '../../widgets/no_overscroll_scroll_behavior.dart';
@@ -32,7 +33,7 @@ class _LoginScreenState extends State<LoginScreen> {
   bool _showPassword = false;
 
   // Ceylon Heritage Theme
-  static const Color _background = Color(0xFFF7F5F0);
+  static const Color _background = Color(0xFFF3E8DF);
   static const Color _primary = Color(0xFFA54E2B);
   static const Color _primaryDark = Color(0xFF793719);
   static const Color _cream = Color(0xFFFFF4E9);
@@ -117,6 +118,8 @@ class _LoginScreenState extends State<LoginScreen> {
   // ================= LOGIN NAVIGATION =================
 
   void _openAfterLogin(AuthResponse response, {String? currentPassword}) {
+    NotificationCenter.instance.start();
+
     if (response.user.passwordChangeRequired) {
       Navigator.of(context).pushReplacement(
         MaterialPageRoute(
@@ -194,7 +197,11 @@ class _LoginScreenState extends State<LoginScreen> {
   Widget _buildTopHeader() {
     return Padding(
       padding: const EdgeInsets.only(top: 6, bottom: 20),
-      child: Row(
+      child: Wrap(
+        alignment: WrapAlignment.spaceBetween,
+        crossAxisAlignment: WrapCrossAlignment.center,
+        spacing: 10,
+        runSpacing: 8,
         children: [
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 7),
@@ -221,19 +228,20 @@ class _LoginScreenState extends State<LoginScreen> {
             ),
           ),
 
-          const Spacer(),
-
-          const Icon(Icons.circle, color: _primary, size: 6),
-
-          const SizedBox(width: 6),
-
-          const Text(
-            'Secure Access',
-            style: TextStyle(
-              fontSize: 10,
-              fontWeight: FontWeight.w600,
-              color: _muted,
-            ),
+          const Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.circle, color: _primary, size: 6),
+              SizedBox(width: 6),
+              Text(
+                'Secure Access',
+                style: TextStyle(
+                  fontSize: 10,
+                  fontWeight: FontWeight.w600,
+                  color: _muted,
+                ),
+              ),
+            ],
           ),
         ],
       ),
@@ -247,7 +255,11 @@ class _LoginScreenState extends State<LoginScreen> {
       width: double.infinity,
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
       decoration: BoxDecoration(
-        color: Colors.white,
+        gradient: const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [Colors.white, _cream],
+        ),
         borderRadius: BorderRadius.circular(17),
         border: Border.all(color: _border),
         boxShadow: [
@@ -456,9 +468,14 @@ class _LoginScreenState extends State<LoginScreen> {
                   ),
                 ),
 
-                Text(
-                  'Explore • Discover • Experience',
-                  style: TextStyle(fontSize: 9, color: _muted),
+                Flexible(
+                  child: Text(
+                    'Explore • Discover • Experience',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    textAlign: TextAlign.right,
+                    style: TextStyle(fontSize: 9, color: _muted),
+                  ),
                 ),
               ],
             ),
@@ -490,7 +507,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
           Text(
             'Sign in to continue your heritage journey.\n'
-            'Explore places, manage tours and stay connected.',
+                'Explore places, manage tours and stay connected.',
             style: TextStyle(fontSize: 12, height: 1.6, color: _muted),
           ),
         ],
@@ -620,30 +637,30 @@ class _LoginScreenState extends State<LoginScreen> {
             ),
             child: _loading
                 ? const SizedBox(
-                    height: 21,
-                    width: 21,
-                    child: CircularProgressIndicator(
-                      color: Colors.white,
-                      strokeWidth: 2,
-                    ),
-                  )
+              height: 21,
+              width: 21,
+              child: CircularProgressIndicator(
+                color: Colors.white,
+                strokeWidth: 2,
+              ),
+            )
                 : const Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Text(
-                        'Login',
-                        style: TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w800,
-                          letterSpacing: 0.4,
-                        ),
-                      ),
-
-                      SizedBox(width: 9),
-
-                      Icon(Icons.arrow_forward_rounded, size: 18),
-                    ],
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text(
+                  'Login',
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 0.4,
                   ),
+                ),
+
+                SizedBox(width: 9),
+
+                Icon(Icons.arrow_forward_rounded, size: 18),
+              ],
+            ),
           ),
         ),
       ],
@@ -708,37 +725,41 @@ class _LoginScreenState extends State<LoginScreen> {
         ),
         child: _googleLoading
             ? const SizedBox(
-                width: 20,
-                height: 20,
-                child: CircularProgressIndicator(
-                  strokeWidth: 2,
-                  color: _primary,
-                ),
-              )
+          width: 20,
+          height: 20,
+          child: CircularProgressIndicator(
+            strokeWidth: 2,
+            color: _primary,
+          ),
+        )
             : const Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Text(
-                    'G',
-                    style: TextStyle(
-                      color: Color(0xFF4285F4),
-                      fontSize: 22,
-                      fontWeight: FontWeight.w900,
-                    ),
-                  ),
-
-                  SizedBox(width: 12),
-
-                  Text(
-                    'Continue with Google',
-                    style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w700,
-                      color: _text,
-                    ),
-                  ),
-                ],
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Text(
+              'G',
+              style: TextStyle(
+                color: Color(0xFF4285F4),
+                fontSize: 22,
+                fontWeight: FontWeight.w900,
               ),
+            ),
+
+            SizedBox(width: 12),
+
+            Flexible(
+              child: Text(
+                'Continue with Google',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w700,
+                  color: _text,
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -748,70 +769,87 @@ class _LoginScreenState extends State<LoginScreen> {
   Widget _buildCreateAccount() {
     return Container(
       margin: const EdgeInsets.only(top: 20),
-      padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 14),
       decoration: BoxDecoration(
         color: _cream,
         borderRadius: BorderRadius.circular(14),
         border: Border.all(color: const Color(0xFFEEDFD1)),
       ),
-      child: Row(
-        children: [
-          Container(
-            width: 38,
-            height: 38,
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: const Icon(
-              Icons.person_add_alt_1_rounded,
-              color: _primary,
-              size: 19,
-            ),
-          ),
-
-          const SizedBox(width: 12),
-
-          const Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(14),
+          onTap: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const SignupScreen()),
+            );
+          },
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 14),
+            child: Row(
               children: [
-                Text(
-                  'New to Ceylon Heritage?',
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: _text,
-                    fontWeight: FontWeight.w800,
+                Container(
+                  width: 38,
+                  height: 38,
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: const Icon(
+                    Icons.person_add_alt_1_rounded,
+                    color: _primary,
+                    size: 19,
                   ),
                 ),
 
-                SizedBox(height: 3),
+                const SizedBox(width: 12),
 
-                Text(
-                  'Create your tourist account',
-                  style: TextStyle(fontSize: 10.5, color: _muted),
+                const Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'New to Ceylon Heritage?',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: _text,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+
+                      SizedBox(height: 3),
+
+                      Text(
+                        'Create your tourist account',
+                        style: TextStyle(fontSize: 10.5, color: _muted),
+                      ),
+                    ],
+                  ),
+                ),
+
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 11,
+                    vertical: 8,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(color: const Color(0xFFEEDFD1)),
+                  ),
+                  child: const Text(
+                    'Sign Up',
+                    style: TextStyle(
+                      fontSize: 11.5,
+                      fontWeight: FontWeight.w800,
+                      color: _primary,
+                    ),
+                  ),
                 ),
               ],
             ),
           ),
-
-          TextButton(
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (_) => const SignupScreen()),
-              );
-            },
-            child: const Text(
-              'Sign Up',
-              style: TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w800,
-                color: _primary,
-              ),
-            ),
-          ),
-        ],
+        ),
       ),
     );
   }
@@ -944,9 +982,9 @@ class _LoginScreenState extends State<LoginScreen> {
 
         leading: Navigator.of(context).canPop()
             ? IconButton(
-                icon: const Icon(Icons.arrow_back_rounded, color: _text),
-                onPressed: () => Navigator.pop(context),
-              )
+          icon: const Icon(Icons.arrow_back_rounded, color: _text),
+          onPressed: () => Navigator.pop(context),
+        )
             : null,
 
         title: const HeritageLogo(compact: true),
@@ -964,7 +1002,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 behavior: const NoOverscrollScrollBehavior(),
                 child: SingleChildScrollView(
                   keyboardDismissBehavior:
-                      ScrollViewKeyboardDismissBehavior.onDrag,
+                  ScrollViewKeyboardDismissBehavior.onDrag,
                   padding: const EdgeInsets.symmetric(
                     horizontal: 20,
                     vertical: 12,

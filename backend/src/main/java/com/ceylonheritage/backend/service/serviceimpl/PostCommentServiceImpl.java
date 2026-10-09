@@ -7,6 +7,7 @@ import com.ceylonheritage.backend.entities.PostComment;
 import com.ceylonheritage.backend.entities.User;
 import com.ceylonheritage.backend.repository.PostCommentRepository;
 import com.ceylonheritage.backend.repository.UserRepository;
+import com.ceylonheritage.backend.service.NotificationService;
 import com.ceylonheritage.backend.service.PostCommentService;
 import jakarta.persistence.EntityManager;
 import org.springframework.data.domain.Page;
@@ -16,6 +17,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
+import java.util.Objects;
+
 @Service
 @Transactional(readOnly = true)
 public class PostCommentServiceImpl implements PostCommentService {
@@ -23,15 +26,18 @@ public class PostCommentServiceImpl implements PostCommentService {
     private final PostCommentRepository postCommentRepository;
     private final UserRepository userRepository;
     private final EntityManager entityManager;
+    private final NotificationService notificationService;
 
     public PostCommentServiceImpl(
             PostCommentRepository postCommentRepository,
             UserRepository userRepository,
-            EntityManager entityManager
+            EntityManager entityManager,
+            NotificationService notificationService
     ) {
         this.postCommentRepository = postCommentRepository;
         this.userRepository = userRepository;
         this.entityManager = entityManager;
+        this.notificationService = notificationService;
     }
 
     @Override
@@ -66,6 +72,17 @@ public class PostCommentServiceImpl implements PostCommentService {
         comment.setContent(request.content().strip());
 
         postCommentRepository.saveAndFlush(comment);
+
+        if (!Objects.equals(post.getAuthor().getId(), author.getId())) {
+            notificationService.createForUser(
+                    post.getAuthor(),
+                    "New comment on your post",
+                    getAuthorName(author)
+                            + " commented on your "
+                            + post.getHistoricalPlace().getName()
+                            + " post."
+            );
+        }
 
         return toDto(comment);
     }

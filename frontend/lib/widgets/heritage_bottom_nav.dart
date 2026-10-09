@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../core/theme/app_colors.dart';
+import 'notification_badge.dart';
 
 class HeritageBottomNav extends StatelessWidget {
   const HeritageBottomNav({
@@ -21,18 +22,22 @@ class HeritageBottomNav extends StatelessWidget {
       backgroundColor: AppColors.surface,
       indicatorColor: AppColors.greenSoft,
       labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
-      destinations: const [
-        NavigationDestination(
+      destinations: [
+        const NavigationDestination(
           icon: Icon(Icons.dashboard_outlined),
           selectedIcon: Icon(Icons.dashboard_rounded),
           label: 'Dashboard',
         ),
-        NavigationDestination(
-          icon: Icon(Icons.notifications_none_rounded),
-          selectedIcon: Icon(Icons.notifications_rounded),
+        const NavigationDestination(
+          icon: NotificationBadge(
+            child: Icon(Icons.notifications_none_rounded),
+          ),
+          selectedIcon: NotificationBadge(
+            child: Icon(Icons.notifications_rounded),
+          ),
           label: 'Alerts',
         ),
-        NavigationDestination(
+        const NavigationDestination(
           icon: Icon(Icons.person_outline_rounded),
           selectedIcon: Icon(Icons.person_rounded),
           label: 'Profile',

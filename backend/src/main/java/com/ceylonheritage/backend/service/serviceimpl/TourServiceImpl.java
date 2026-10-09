@@ -11,6 +11,7 @@ import com.ceylonheritage.backend.repository.HistoricalPlaceRepository;
 import com.ceylonheritage.backend.repository.TourRepository;
 import com.ceylonheritage.backend.repository.TourStopRepository;
 import com.ceylonheritage.backend.repository.UserRepository;
+import com.ceylonheritage.backend.service.NotificationService;
 import com.ceylonheritage.backend.service.TourService;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -34,17 +35,20 @@ public class TourServiceImpl implements TourService {
     private final TourStopRepository tourStopRepository;
     private final HistoricalPlaceRepository historicalPlaceRepository;
     private final UserRepository userRepository;
+    private final NotificationService notificationService;
 
     public TourServiceImpl(
             TourRepository tourRepository,
             TourStopRepository tourStopRepository,
             HistoricalPlaceRepository historicalPlaceRepository,
-            UserRepository userRepository
+            UserRepository userRepository,
+            NotificationService notificationService
     ) {
         this.tourRepository = tourRepository;
         this.tourStopRepository = tourStopRepository;
         this.historicalPlaceRepository = historicalPlaceRepository;
         this.userRepository = userRepository;
+        this.notificationService = notificationService;
     }
 
     @Override
@@ -63,6 +67,15 @@ public class TourServiceImpl implements TourService {
 
         tourRepository.saveAndFlush(tour);
         saveStops(tour, places);
+
+        notificationService.createForUser(
+                owner,
+                "Tour saved",
+                "Your " + name + " tour has been saved with "
+                        + places.size()
+                        + " heritage stop"
+                        + (places.size() == 1 ? "." : "s.")
+        );
 
         return toDto(tour);
     }
@@ -125,6 +138,12 @@ public class TourServiceImpl implements TourService {
         tourStopRepository.flush();
 
         saveStops(tour, places);
+
+        notificationService.createForUser(
+                tour.getOwner(),
+                "Tour updated",
+                "Your " + name + " tour has been updated."
+        );
 
         return toDto(tour);
     }

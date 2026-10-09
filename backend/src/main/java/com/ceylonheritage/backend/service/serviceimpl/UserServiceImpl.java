@@ -6,6 +6,7 @@ import com.ceylonheritage.backend.enums.Role;
 import com.ceylonheritage.backend.exception.UserException;
 import com.ceylonheritage.backend.repository.ForgotPasswordRepository;
 import com.ceylonheritage.backend.repository.UserRepository;
+import com.ceylonheritage.backend.service.NotificationService;
 import com.ceylonheritage.backend.service.ProfileImageStorageService;
 import com.ceylonheritage.backend.service.UserService;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -24,17 +25,20 @@ public class UserServiceImpl implements UserService {
     private final ForgotPasswordRepository forgotPasswordRepository;
     private final PasswordEncoder passwordEncoder;
     private final ProfileImageStorageService profileImageStorageService;
+    private final NotificationService notificationService;
 
     public UserServiceImpl(
             UserRepository userRepository,
             ForgotPasswordRepository forgotPasswordRepository,
             PasswordEncoder passwordEncoder,
-            ProfileImageStorageService profileImageStorageService
+            ProfileImageStorageService profileImageStorageService,
+            NotificationService notificationService
     ) {
         this.userRepository = userRepository;
         this.forgotPasswordRepository = forgotPasswordRepository;
         this.passwordEncoder = passwordEncoder;
         this.profileImageStorageService = profileImageStorageService;
+        this.notificationService = notificationService;
     }
 
 
@@ -186,6 +190,12 @@ public class UserServiceImpl implements UserService {
         user.setRefreshTokenHash(null);
 
         userRepository.save(user);
+
+        notificationService.createForUser(
+                user,
+                "Password changed",
+                "Your account password was changed successfully."
+        );
 
         return new UserDto.MessageResponse(
                 true,
