@@ -6,6 +6,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../core/constants/api_config.dart';
 import '../../models/user_profile.dart';
 import '../../services/api_client.dart';
+import '../../widgets/notification_badge.dart';
 import '../notifications/notifications_screen.dart';
 import '../profile/profile_screen.dart';
 import 'historical_place_details_screen.dart';
@@ -20,9 +21,7 @@ void main() {
       title: 'Ceylon Heritage',
       theme: ThemeData(
         useMaterial3: true,
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: const Color(0xFF9A4F2D),
-        ),
+        colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF9A4F2D)),
         textTheme: GoogleFonts.interTextTheme(),
         scaffoldBackgroundColor: const Color(0xFFFFFAF6),
       ),
@@ -101,9 +100,9 @@ class HistoricalPlace {
       visitDurationMinutes: integer(json['visitDurationMinutes']),
       galleryImages: gallery is List
           ? gallery
-          .whereType<String>()
-          .where((value) => value.trim().isNotEmpty)
-          .toList()
+                .whereType<String>()
+                .where((value) => value.trim().isNotEmpty)
+                .toList()
           : const [],
     );
   }
@@ -178,8 +177,7 @@ class HistoricalPlacesScreen extends StatefulWidget {
   final ValueChanged<HistoricalPlace>? onPlaceSelected;
 
   @override
-  State<HistoricalPlacesScreen> createState() =>
-      _HistoricalPlacesScreenState();
+  State<HistoricalPlacesScreen> createState() => _HistoricalPlacesScreenState();
 }
 
 class _HistoricalPlacesScreenState extends State<HistoricalPlacesScreen> {
@@ -220,9 +218,7 @@ class _HistoricalPlacesScreenState extends State<HistoricalPlacesScreen> {
   @override
   void initState() {
     super.initState();
-    _searchController = TextEditingController(
-      text: widget.initialKeyword,
-    );
+    _searchController = TextEditingController(text: widget.initialKeyword);
     _load();
   }
 
@@ -247,9 +243,7 @@ class _HistoricalPlacesScreenState extends State<HistoricalPlacesScreen> {
         throw const FormatException('Invalid place data.');
       }
 
-      return HistoricalPlace.fromJson(
-        Map<String, dynamic>.from(item),
-      );
+      return HistoricalPlace.fromJson(Map<String, dynamic>.from(item));
     }).toList();
   }
 
@@ -269,10 +263,7 @@ class _HistoricalPlacesScreenState extends State<HistoricalPlacesScreen> {
     try {
       if (searching) {
         final query = Uri(
-          queryParameters: {
-            'keyword': keyword,
-            'category': category,
-          },
+          queryParameters: {'keyword': keyword, 'category': category},
         ).query;
 
         final places = await _fetch('/api/places/search?$query');
@@ -318,10 +309,7 @@ class _HistoricalPlacesScreenState extends State<HistoricalPlacesScreen> {
       _error = null;
     });
 
-    _debounce = Timer(
-      const Duration(milliseconds: 450),
-      _load,
-    );
+    _debounce = Timer(const Duration(milliseconds: 450), _load);
   }
 
   void _changeCategory(String category) {
@@ -335,14 +323,10 @@ class _HistoricalPlacesScreenState extends State<HistoricalPlacesScreen> {
 
     if (_sort == 'Name A–Z') {
       places.sort(
-            (a, b) => a.name.toLowerCase().compareTo(
-          b.name.toLowerCase(),
-        ),
+        (a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()),
       );
     } else if (_sort == 'Highest rated') {
-      places.sort(
-            (a, b) => (b.rating ?? -1).compareTo(a.rating ?? -1),
-      );
+      places.sort((a, b) => (b.rating ?? -1).compareTo(a.rating ?? -1));
     }
 
     return places;
@@ -351,9 +335,9 @@ class _HistoricalPlacesScreenState extends State<HistoricalPlacesScreen> {
   void _message(String message) {
     if (!mounted) return;
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message)),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
   }
 
   bool _togglePlace(HistoricalPlace place) {
@@ -377,15 +361,13 @@ class _HistoricalPlacesScreenState extends State<HistoricalPlacesScreen> {
     final callback = widget.onTours;
 
     if (callback != null) {
-      callback(
-        List<HistoricalPlace>.unmodifiable(_selected.values),
-      );
+      callback(List<HistoricalPlace>.unmodifiable(_selected.values));
       return;
     }
 
     _message(
       'Selected ${_selected.length} places. '
-          'Tour Planning will be connected next.',
+      'Tour Planning will be connected next.',
     );
   }
 
@@ -393,16 +375,12 @@ class _HistoricalPlacesScreenState extends State<HistoricalPlacesScreen> {
     final user = widget.user;
 
     if (user == null) {
-      _message(
-        'Notifications are available from your signed-in account.',
-      );
+      _message('Notifications are available from your signed-in account.');
       return;
     }
 
     Navigator.of(context).push(
-      MaterialPageRoute<void>(
-        builder: (_) => NotificationsScreen(user: user),
-      ),
+      MaterialPageRoute<void>(builder: (_) => NotificationsScreen(user: user)),
     );
   }
 
@@ -414,11 +392,9 @@ class _HistoricalPlacesScreenState extends State<HistoricalPlacesScreen> {
       return;
     }
 
-    Navigator.of(context).push(
-      MaterialPageRoute<void>(
-        builder: (_) => ProfileScreen(user: user),
-      ),
-    );
+    Navigator.of(
+      context,
+    ).push(MaterialPageRoute<void>(builder: (_) => ProfileScreen(user: user)));
   }
 
   Future<void> _openDetails(HistoricalPlace place) async {
@@ -504,11 +480,9 @@ class _HistoricalPlacesScreenState extends State<HistoricalPlacesScreen> {
                         labelText: 'Sort by',
                         border: OutlineInputBorder(),
                       ),
-                      items: [
-                        'Recommended',
-                        'Name A–Z',
-                        'Highest rated',
-                      ].map((value) {
+                      items: ['Recommended', 'Name A–Z', 'Highest rated'].map((
+                        value,
+                      ) {
                         return DropdownMenuItem(
                           value: value,
                           child: Text(value),
@@ -569,11 +543,7 @@ class _HistoricalPlacesScreenState extends State<HistoricalPlacesScreen> {
       return Container(
         color: _surface,
         alignment: Alignment.center,
-        child: const Icon(
-          Icons.landscape_outlined,
-          color: _muted,
-          size: 32,
-        ),
+        child: const Icon(Icons.landscape_outlined, color: _muted, size: 32),
       );
     }
 
@@ -594,9 +564,7 @@ class _HistoricalPlacesScreenState extends State<HistoricalPlacesScreen> {
 
     final url = uri.hasScheme
         ? uri.toString()
-        : Uri.parse('${ApiConfig.baseUrl}/')
-        .resolve(place.imageUrl)
-        .toString();
+        : Uri.parse('${ApiConfig.baseUrl}/').resolve(place.imageUrl).toString();
 
     final resolved = Uri.tryParse(url);
 
@@ -622,24 +590,15 @@ class _HistoricalPlacesScreenState extends State<HistoricalPlacesScreen> {
           Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Icon(
-                Icons.location_on,
-                size: 13,
-                color: _primary,
-              ),
+              const Icon(Icons.location_on, size: 13, color: _primary),
               const SizedBox(width: 3),
               Text(
                 place.city,
-                style: const TextStyle(
-                  fontSize: 11,
-                  color: _muted,
-                ),
+                style: const TextStyle(fontSize: 11, color: _muted),
               ),
             ],
           ),
-        if (place.rating != null &&
-            place.rating! > 0 &&
-            place.reviewCount > 0)
+        if (place.rating != null && place.rating! > 0 && place.reviewCount > 0)
           Row(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -651,11 +610,8 @@ class _HistoricalPlacesScreenState extends State<HistoricalPlacesScreen> {
               const SizedBox(width: 3),
               Text(
                 '${place.rating!.toStringAsFixed(1)} '
-                    '(${place.reviewCount})',
-                style: const TextStyle(
-                  fontSize: 11,
-                  color: _muted,
-                ),
+                '(${place.reviewCount})',
+                style: const TextStyle(fontSize: 11, color: _muted),
               ),
             ],
           ),
@@ -672,16 +628,13 @@ class _HistoricalPlacesScreenState extends State<HistoricalPlacesScreen> {
     double tallest = 0;
 
     double textHeight(
-        String value,
-        TextStyle style, {
-          required double maxWidth,
-          int? maxLines,
-        }) {
+      String value,
+      TextStyle style, {
+      required double maxWidth,
+      int? maxLines,
+    }) {
       final painter = TextPainter(
-        text: TextSpan(
-          text: value,
-          style: defaultStyle.merge(style),
-        ),
+        text: TextSpan(text: value, style: defaultStyle.merge(style)),
         textDirection: textDirection,
         textScaler: textScaler,
         maxLines: maxLines,
@@ -696,10 +649,7 @@ class _HistoricalPlacesScreenState extends State<HistoricalPlacesScreen> {
     for (final place in _popular) {
       final titleHeight = textHeight(
         place.name,
-        const TextStyle(
-          fontWeight: FontWeight.w700,
-          fontSize: 12,
-        ),
+        const TextStyle(fontWeight: FontWeight.w700, fontSize: 12),
         maxWidth: 116,
         maxLines: 2,
       );
@@ -715,12 +665,10 @@ class _HistoricalPlacesScreenState extends State<HistoricalPlacesScreen> {
         metadataHeight = cityHeight > 13 ? cityHeight : 13;
       }
 
-      if (place.rating != null &&
-          place.rating! > 0 &&
-          place.reviewCount > 0) {
+      if (place.rating != null && place.rating! > 0 && place.reviewCount > 0) {
         final ratingHeight = textHeight(
           '${place.rating!.toStringAsFixed(1)} '
-              '(${place.reviewCount})',
+          '(${place.reviewCount})',
           const TextStyle(fontSize: 11, color: _muted),
           maxWidth: double.infinity,
         );
@@ -798,11 +746,7 @@ class _HistoricalPlacesScreenState extends State<HistoricalPlacesScreen> {
             borderRadius: BorderRadius.circular(10),
             child: ClipRRect(
               borderRadius: BorderRadius.circular(10),
-              child: SizedBox(
-                width: 94,
-                height: 116,
-                child: _image(place),
-              ),
+              child: SizedBox(width: 94, height: 116, child: _image(place)),
             ),
           ),
           const SizedBox(width: 12),
@@ -841,9 +785,7 @@ class _HistoricalPlacesScreenState extends State<HistoricalPlacesScreen> {
                       style: OutlinedButton.styleFrom(
                         foregroundColor: _primary,
                         side: const BorderSide(color: _primary),
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 9,
-                        ),
+                        padding: const EdgeInsets.symmetric(horizontal: 9),
                         visualDensity: VisualDensity.compact,
                       ),
                       child: Text(
@@ -855,9 +797,7 @@ class _HistoricalPlacesScreenState extends State<HistoricalPlacesScreen> {
                       onPressed: () => _openDetails(place),
                       style: FilledButton.styleFrom(
                         backgroundColor: _primary,
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 9,
-                        ),
+                        padding: const EdgeInsets.symmetric(horizontal: 9),
                         visualDensity: VisualDensity.compact,
                       ),
                       child: const Text(
@@ -895,8 +835,7 @@ class _HistoricalPlacesScreenState extends State<HistoricalPlacesScreen> {
                   child: ListView.separated(
                     padding: const EdgeInsets.all(16),
                     itemCount: _popular.length,
-                    separatorBuilder: (_, index) =>
-                    const Divider(height: 20),
+                    separatorBuilder: (_, index) => const Divider(height: 20),
                     itemBuilder: (_, index) {
                       final place = _popular[index];
 
@@ -933,9 +872,7 @@ class _HistoricalPlacesScreenState extends State<HistoricalPlacesScreen> {
     if (_loading) {
       return const Padding(
         padding: EdgeInsets.symmetric(vertical: 70),
-        child: Center(
-          child: CircularProgressIndicator(color: _primary),
-        ),
+        child: Center(child: CircularProgressIndicator(color: _primary)),
       );
     }
 
@@ -949,9 +886,7 @@ class _HistoricalPlacesScreenState extends State<HistoricalPlacesScreen> {
             Text(_error!, textAlign: TextAlign.center),
             const SizedBox(height: 12),
             FilledButton(
-              style: FilledButton.styleFrom(
-                backgroundColor: _primary,
-              ),
+              style: FilledButton.styleFrom(backgroundColor: _primary),
               onPressed: _load,
               child: const Text('Retry'),
             ),
@@ -960,9 +895,7 @@ class _HistoricalPlacesScreenState extends State<HistoricalPlacesScreen> {
       );
     }
 
-    final places = _sorted(
-      _searching ? _results : _recommended,
-    );
+    final places = _sorted(_searching ? _results : _recommended);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -970,14 +903,10 @@ class _HistoricalPlacesScreenState extends State<HistoricalPlacesScreen> {
         if (!_searching && _popular.isNotEmpty) ...[
           Row(
             children: [
-              Expanded(
-                child: _title('Popular Searches', size: 20),
-              ),
+              Expanded(child: _title('Popular Searches', size: 20)),
               TextButton(
                 onPressed: _showAllPopular,
-                style: TextButton.styleFrom(
-                  foregroundColor: _primary,
-                ),
+                style: TextButton.styleFrom(foregroundColor: _primary),
                 child: const Text('See All →'),
               ),
             ],
@@ -988,18 +917,13 @@ class _HistoricalPlacesScreenState extends State<HistoricalPlacesScreen> {
             child: ListView.separated(
               scrollDirection: Axis.horizontal,
               itemCount: _popular.length,
-              separatorBuilder: (_, index) =>
-              const SizedBox(width: 10),
-              itemBuilder: (_, index) =>
-                  _popularCard(_popular[index]),
+              separatorBuilder: (_, index) => const SizedBox(width: 10),
+              itemBuilder: (_, index) => _popularCard(_popular[index]),
             ),
           ),
           const SizedBox(height: 22),
         ],
-        _title(
-          _searching ? 'Search Results' : 'Recommended Places',
-          size: 20,
-        ),
+        _title(_searching ? 'Search Results' : 'Recommended Places', size: 20),
         const SizedBox(height: 16),
         if (places.isEmpty)
           const Padding(
@@ -1050,7 +974,9 @@ class _HistoricalPlacesScreenState extends State<HistoricalPlacesScreen> {
         IconButton(
           tooltip: 'Notifications',
           onPressed: _openNotifications,
-          icon: const Icon(Icons.notifications_none_rounded),
+          icon: const NotificationBadge(
+            child: Icon(Icons.notifications_none_rounded),
+          ),
         ),
       ],
     );
@@ -1075,14 +1001,14 @@ class _HistoricalPlacesScreenState extends State<HistoricalPlacesScreen> {
               suffixIcon: _searchController.text.isEmpty
                   ? null
                   : IconButton(
-                tooltip: 'Clear search',
-                onPressed: () {
-                  _searchController.clear();
-                  _debounce?.cancel();
-                  _load();
-                },
-                icon: const Icon(Icons.close, size: 18),
-              ),
+                      tooltip: 'Clear search',
+                      onPressed: () {
+                        _searchController.clear();
+                        _debounce?.cancel();
+                        _load();
+                      },
+                      icon: const Icon(Icons.close, size: 18),
+                    ),
               filled: true,
               fillColor: Colors.white,
               contentPadding: const EdgeInsets.symmetric(
@@ -1105,10 +1031,7 @@ class _HistoricalPlacesScreenState extends State<HistoricalPlacesScreen> {
           onPressed: _showFilters,
           style: FilledButton.styleFrom(
             backgroundColor: _primary,
-            padding: const EdgeInsets.symmetric(
-              horizontal: 12,
-              vertical: 14,
-            ),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
           ),
           icon: const Icon(Icons.tune, size: 18),
           label: const Text('Filter'),
@@ -1156,14 +1079,8 @@ class _HistoricalPlacesScreenState extends State<HistoricalPlacesScreen> {
         indicatorColor: _surface,
         onDestinationSelected: _navigate,
         destinations: const [
-          NavigationDestination(
-            icon: Icon(Icons.home_outlined),
-            label: 'Home',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.search),
-            label: 'Explore',
-          ),
+          NavigationDestination(icon: Icon(Icons.home_outlined), label: 'Home'),
+          NavigationDestination(icon: Icon(Icons.search), label: 'Explore'),
           NavigationDestination(
             icon: Icon(Icons.add_circle_outline),
             label: 'Tours',
@@ -1201,10 +1118,7 @@ class _HistoricalPlacesScreenState extends State<HistoricalPlacesScreen> {
                       const SizedBox(height: 6),
                       const Text(
                         'Search and discover Sri Lanka’s rich heritage',
-                        style: TextStyle(
-                          color: _muted,
-                          fontSize: 12,
-                        ),
+                        style: TextStyle(color: _muted, fontSize: 12),
                       ),
                       const SizedBox(height: 16),
                       _searchBar(),
@@ -1222,12 +1136,9 @@ class _HistoricalPlacesScreenState extends State<HistoricalPlacesScreen> {
                             selectedColor: _primary,
                             labelStyle: TextStyle(
                               fontSize: 12,
-                              color: selected
-                                  ? Colors.white
-                                  : _primary,
+                              color: selected ? Colors.white : _primary,
                             ),
-                            onSelected: (_) =>
-                                _changeCategory(entry.key),
+                            onSelected: (_) => _changeCategory(entry.key),
                           );
                         }).toList(),
                       ),
