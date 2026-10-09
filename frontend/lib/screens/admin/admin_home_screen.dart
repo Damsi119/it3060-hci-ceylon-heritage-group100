@@ -82,17 +82,33 @@ class AdminHomeScreen extends StatelessWidget {
           ),
           const SizedBox(height: 16),
           Container(
-            height: 142,
+            height: 150,
+            clipBehavior: Clip.antiAlias,
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(18),
-              gradient: const LinearGradient(
-                colors: [Color(0xFF7D4027), Color(0xFFA95A32)],
-                begin: Alignment.bottomLeft,
-                end: Alignment.topRight,
+              image: const DecorationImage(
+                image: AssetImage('assets/images/polonnaruwa_banner.png'),
+                fit: BoxFit.cover,
+                alignment: Alignment.center,
               ),
             ),
             child: Stack(
               children: [
+                Positioned.fill(
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: [
+                          Colors.black.withValues(alpha: .66),
+                          const Color(0xFF5A2D1F).withValues(alpha: .46),
+                          Colors.black.withValues(alpha: .16),
+                        ],
+                        begin: Alignment.centerLeft,
+                        end: Alignment.centerRight,
+                      ),
+                    ),
+                  ),
+                ),
                 Positioned(
                   right: -10,
                   bottom: -20,
@@ -114,7 +130,7 @@ class AdminHomeScreen extends StatelessWidget {
                       ),
                       Spacer(),
                       Text(
-                        'Admin field desk',
+                        'Admin Field Desk',
                         style: TextStyle(
                           color: Colors.white,
                           fontSize: 22,
@@ -123,7 +139,7 @@ class AdminHomeScreen extends StatelessWidget {
                       ),
                       SizedBox(height: 3),
                       Text(
-                        'Accounts · approvals · notifications',
+                        'Accounts - approvals - notifications',
                         style: TextStyle(
                           color: Color(0xFFF3DED3),
                           fontSize: 10,
