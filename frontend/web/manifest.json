@@ -1,0 +1,35 @@
+{
+    "name": "Ceylon Heritage",
+    "short_name": "Heritage",
+    "start_url": ".",
+    "display": "standalone",
+    "background_color": "#E8E3DE",
+    "theme_color": "#9A4F2D",
+    "description": "Ceylon Heritage mobile client.",
+    "orientation": "portrait-primary",
+    "prefer_related_applications": false,
+    "icons": [
+        {
+            "src": "icons/Icon-192.png",
+            "sizes": "192x192",
+            "type": "image/png"
+        },
+        {
+            "src": "icons/Icon-512.png",
+            "sizes": "512x512",
+            "type": "image/png"
+        },
+        {
+            "src": "icons/Icon-maskable-192.png",
+            "sizes": "192x192",
+            "type": "image/png",
+            "purpose": "maskable"
+        },
+        {
+            "src": "icons/Icon-maskable-512.png",
+            "sizes": "512x512",
+            "type": "image/png",
+            "purpose": "maskable"
+        }
+    ]
+}
