@@ -134,6 +134,7 @@ class _SignupScreenState extends State<SignupScreen> {
     required String label,
     required String hint,
     required TextEditingController controller,
+    IconData? icon,
     TextInputType? keyboardType,
     String? Function(String?)? validator,
     bool obscureText = false,
@@ -187,6 +188,9 @@ class _SignupScreenState extends State<SignupScreen> {
                       color: _muted,
                     ),
                   ),
+            prefixIcon: icon == null
+                ? null
+                : Icon(icon, color: _primaryDark, size: 18),
 
             filled: true,
             fillColor: const Color(0xFFFFFCF8),
@@ -384,22 +388,80 @@ class _SignupScreenState extends State<SignupScreen> {
         borderRadius: BorderRadius.circular(16),
         child: AspectRatio(
           aspectRatio: 2.8,
-          child: Image.asset(
-            'assets/images/signup_heritage_banner.png',
-            fit: BoxFit.cover,
-            alignment: Alignment.center,
-            errorBuilder: (context, error, stackTrace) {
-              return Container(
-                color: _soft,
-                child: const Center(
-                  child: Icon(
-                    Icons.account_balance_rounded,
-                    size: 42,
-                    color: _primaryDark,
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              Image.asset(
+                'assets/images/signup_heritage_banner.png',
+                fit: BoxFit.cover,
+                alignment: Alignment.center,
+                errorBuilder: (context, error, stackTrace) {
+                  return Container(
+                    color: _soft,
+                    child: const Center(
+                      child: Icon(
+                        Icons.account_balance_rounded,
+                        size: 42,
+                        color: _primaryDark,
+                      ),
+                    ),
+                  );
+                },
+              ),
+              const DecoratedBox(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [
+                      Color(0x11000000),
+                      Color(0x22000000),
+                      Color(0xAA24120B),
+                    ],
                   ),
                 ),
-              );
-            },
+              ),
+              Positioned(
+                left: 14,
+                right: 14,
+                bottom: 13,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 9,
+                        vertical: 5,
+                      ),
+                      decoration: BoxDecoration(
+                        color: _surface.withValues(alpha: 0.92),
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: const Text(
+                        'START YOUR JOURNEY',
+                        style: TextStyle(
+                          color: _primaryDark,
+                          fontSize: 8.5,
+                          fontWeight: FontWeight.w900,
+                          letterSpacing: 0.7,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 7),
+                    const Text(
+                      'Explore Sri Lankan heritage with one account',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 13.5,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
           ),
         ),
       ),
@@ -418,6 +480,7 @@ class _SignupScreenState extends State<SignupScreen> {
             label: 'Full name',
             hint: 'Your full name',
             controller: _fullName,
+            icon: Icons.badge_outlined,
             keyboardType: TextInputType.name,
             validator: _required,
           ),
@@ -425,6 +488,7 @@ class _SignupScreenState extends State<SignupScreen> {
             label: 'Username',
             hint: 'Username',
             controller: _username,
+            icon: Icons.alternate_email_rounded,
             validator: _required,
           ),
         ),
@@ -444,6 +508,7 @@ class _SignupScreenState extends State<SignupScreen> {
             label: 'Email',
             hint: 'Email address',
             controller: _email,
+            icon: Icons.mail_outline_rounded,
             keyboardType: TextInputType.emailAddress,
             validator: (value) {
               if (_required(value) != null) {
@@ -462,6 +527,7 @@ class _SignupScreenState extends State<SignupScreen> {
             label: 'Phone number',
             hint: '07XXXXXXXX',
             controller: _phone,
+            icon: Icons.phone_outlined,
             keyboardType: TextInputType.phone,
             validator: _required,
           ),
@@ -473,6 +539,7 @@ class _SignupScreenState extends State<SignupScreen> {
           label: 'Address (optional)',
           hint: 'Enter your address',
           controller: _address,
+          icon: Icons.location_on_outlined,
         ),
       ],
     );
@@ -490,6 +557,7 @@ class _SignupScreenState extends State<SignupScreen> {
             label: 'Password',
             hint: 'Password',
             controller: _password,
+            icon: Icons.lock_outline_rounded,
             obscureText: !_showPassword,
             onVisibilityToggle: () {
               setState(() {
@@ -508,6 +576,7 @@ class _SignupScreenState extends State<SignupScreen> {
             label: 'Confirm password',
             hint: 'Confirm password',
             controller: _confirm,
+            icon: Icons.verified_user_outlined,
             obscureText: !_showConfirmPassword,
             textInputAction: TextInputAction.done,
             onVisibilityToggle: () {
@@ -592,14 +661,23 @@ class _SignupScreenState extends State<SignupScreen> {
   // ================= TERMS =================
 
   Widget _buildTerms() {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 18),
+    return Container(
+      margin: const EdgeInsets.only(bottom: 18),
+      padding: const EdgeInsets.only(right: 12),
+      decoration: BoxDecoration(
+        color: _surface,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: _border),
+      ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
           Checkbox(
             value: _agreed,
             activeColor: _primary,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(5),
+            ),
             onChanged: (value) {
               setState(() {
                 _agreed = value ?? false;
@@ -610,7 +688,12 @@ class _SignupScreenState extends State<SignupScreen> {
           const Expanded(
             child: Text(
               'I agree to the Ceylon Heritage terms of use.',
-              style: TextStyle(fontSize: 11.5, height: 1.5, color: _text),
+              style: TextStyle(
+                fontSize: 11.5,
+                height: 1.5,
+                color: _text,
+                fontWeight: FontWeight.w600,
+              ),
             ),
           ),
         ],

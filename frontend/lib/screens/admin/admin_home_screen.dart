@@ -6,6 +6,7 @@ import '../../models/user_profile.dart';
 import '../../widgets/heritage_app_bar.dart';
 import '../../widgets/heritage_badge.dart';
 import '../../widgets/heritage_card.dart';
+import '../../widgets/notification_badge.dart';
 import '../notifications/notifications_screen.dart';
 import '../profile/profile_screen.dart';
 import 'admin_guide_requests_screen.dart';
@@ -28,7 +29,9 @@ class AdminHomeScreen extends StatelessWidget {
                 builder: (_) => NotificationsScreen(user: user),
               ),
             ),
-            icon: const Icon(Icons.notifications_none_rounded),
+            icon: const NotificationBadge(
+              child: Icon(Icons.notifications_none_rounded),
+            ),
           ),
           Padding(
             padding: const EdgeInsets.only(right: 12),

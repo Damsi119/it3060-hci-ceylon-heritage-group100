@@ -11,6 +11,7 @@ import 'screens/nearby_places.dart';
 import 'screens/profile/profile_screen.dart';
 import 'screens/home/home_router.dart';
 import 'services/api_client.dart';
+import 'services/notification_center.dart';
 import 'services/token_store.dart';
 import 'services/user_service.dart';
 import 'widgets/heritage_logo.dart';
@@ -119,6 +120,7 @@ class _ProfileRouteState extends State<_ProfileRoute> {
                     FilledButton(
                       onPressed: () {
                         TokenStore.clear();
+                        NotificationCenter.instance.stop(clear: true);
                         Navigator.of(context).pushAndRemoveUntil(
                           MaterialPageRoute<void>(
                             builder: (_) => const LoginScreen(),
@@ -178,6 +180,7 @@ class _StartupGateState extends State<_StartupGate> {
 
     try {
       final user = await UserService.instance.getProfile();
+      await NotificationCenter.instance.start();
       if (mounted) {
         setState(() {
           _user = user;

@@ -2,15 +2,10 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
-import '../../core/theme/app_colors.dart';
 import '../../services/api_client.dart';
 import '../../services/auth_service.dart';
-import '../../widgets/auth_shell.dart';
-import '../../widgets/heritage_badge.dart';
-import '../../widgets/heritage_button.dart';
+import '../../widgets/heritage_auth_ui.dart';
 import '../../widgets/heritage_message.dart';
-import '../../widgets/heritage_section_title.dart';
-import '../../widgets/heritage_text_field.dart';
 import '../../widgets/otp_code_input.dart';
 import 'reset_password_screen.dart';
 
@@ -122,56 +117,105 @@ class _ForgotPasswordVerifyScreenState
 
   @override
   Widget build(BuildContext context) {
-    return AuthShell(
+    return HeritageAuthShell(
       showBack: true,
+      badgeLabel: 'Secure Code',
+      badgeIcon: Icons.verified_user_outlined,
+      heroTitle: 'Check your reset code',
+      heroSubtitle: 'The code protects your account before a new password.',
+      title: 'Verify reset code',
+      subtitle:
+          'Enter the verification code sent to the email linked with your account.',
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const HeritageBadge(
-            label: 'Account recovery',
-            icon: Icons.verified_user_outlined,
-          ),
-          const SizedBox(height: 10),
-          const HeritageSectionTitle(
-            title: 'Verify reset code',
-            subtitle:
-                'Enter the verification code sent to the email linked with your account.',
-          ),
-          const SizedBox(height: 16),
-          if (widget.initialEmail.isEmpty) ...[
-            HeritageTextField(
-              controller: _email,
-              label: 'Registered email',
-              hint: 'name@example.com',
-              icon: Icons.mail_outline,
-              keyboardType: TextInputType.emailAddress,
-            ),
-            const SizedBox(height: 16),
-          ],
-          OtpCodeInput(controller: _code),
-          const SizedBox(height: 16),
-          HeritagePrimaryButton(
-            label: 'Verify code',
-            onPressed: _verify,
-            loading: _loading,
-          ),
-          const SizedBox(height: 10),
-          Center(
-            child: TextButton(
-              onPressed: _seconds == 0 && !_resending ? _resend : null,
-              child: Text(
-                _resending
-                    ? 'Sending...'
-                    : _seconds > 0
-                    ? 'Resend in 00:${_seconds.toString().padLeft(2, '0')}'
-                    : 'Resend code',
-              ),
+          HeritageAuthCard(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Container(
+                      width: 40,
+                      height: 40,
+                      decoration: BoxDecoration(
+                        color: HeritageAuthColors.soft,
+                        borderRadius: BorderRadius.circular(11),
+                      ),
+                      child: const Icon(
+                        Icons.mark_email_read_outlined,
+                        color: HeritageAuthColors.primaryDark,
+                        size: 21,
+                      ),
+                    ),
+                    const SizedBox(width: 11),
+                    Expanded(
+                      child: Text(
+                        widget.initialEmail.isEmpty
+                            ? 'Enter the email used for recovery'
+                            : 'Code sent to ${widget.initialEmail}',
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontSize: 12.5,
+                          height: 1.4,
+                          fontWeight: FontWeight.w700,
+                          color: HeritageAuthColors.text,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                if (widget.initialEmail.isEmpty) ...[
+                  const SizedBox(height: 16),
+                  HeritageAuthField(
+                    controller: _email,
+                    label: 'Registered email',
+                    hint: 'name@example.com',
+                    icon: Icons.mail_outline,
+                    keyboardType: TextInputType.emailAddress,
+                  ),
+                ],
+                const SizedBox(height: 18),
+                OtpCodeInput(
+                  controller: _code,
+                  activeColor: HeritageAuthColors.primary,
+                  borderColor: HeritageAuthColors.border,
+                  fillColor: HeritageAuthColors.inputSurface,
+                  textColor: HeritageAuthColors.primaryDark,
+                ),
+                const SizedBox(height: 16),
+                HeritageAuthPrimaryButton(
+                  label: 'Verify code',
+                  onPressed: _verify,
+                  loading: _loading,
+                  icon: Icons.verified_rounded,
+                ),
+                const SizedBox(height: 10),
+                Center(
+                  child: TextButton(
+                    onPressed: _seconds == 0 && !_resending ? _resend : null,
+                    style: TextButton.styleFrom(
+                      foregroundColor: HeritageAuthColors.primaryDark,
+                    ),
+                    child: Text(
+                      _resending
+                          ? 'Sending...'
+                          : _seconds > 0
+                          ? 'Resend in 00:${_seconds.toString().padLeft(2, '0')}'
+                          : 'Resend code',
+                      style: const TextStyle(fontWeight: FontWeight.w800),
+                    ),
+                  ),
+                ),
+              ],
             ),
           ),
           const SizedBox(height: 14),
-          const Text(
-            'The reset code expires in 5 minutes.',
-            style: TextStyle(fontSize: 10.5, color: AppColors.textMuted),
+          const HeritageAuthNotice(
+            icon: Icons.schedule_rounded,
+            title: 'Time limit',
+            message: 'The reset code expires in 5 minutes.',
           ),
         ],
       ),

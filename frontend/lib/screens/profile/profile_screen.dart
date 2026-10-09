@@ -11,6 +11,7 @@ import '../../services/user_service.dart';
 import '../../widgets/heritage_logo.dart';
 import '../../widgets/heritage_message.dart';
 import '../../widgets/no_overscroll_scroll_behavior.dart';
+import '../../widgets/notification_badge.dart';
 import '../auth/change_password_screen.dart';
 import '../auth/login_screen.dart';
 import '../home/home_router.dart';
@@ -491,9 +492,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     ],
                   ),
                 ),
-                _HeaderRoundButton(
-                  icon: Icons.notifications_none_rounded,
-                  onTap: _openNotifications,
+                NotificationBadge(
+                  child: _HeaderRoundButton(
+                    icon: Icons.notifications_none_rounded,
+                    onTap: _openNotifications,
+                  ),
                 ),
                 const SizedBox(width: 7),
                 PopupMenuButton<String>(
@@ -1252,6 +1255,7 @@ class _WarmBottomNav extends StatelessWidget {
                 title: 'Alerts',
                 selected: false,
                 onTap: onTap,
+                showBadge: true,
               ),
               _NavItem(
                 index: 2,
@@ -1275,6 +1279,7 @@ class _NavItem extends StatelessWidget {
     required this.title,
     required this.selected,
     required this.onTap,
+    this.showBadge = false,
   });
 
   final int index;
@@ -1282,6 +1287,7 @@ class _NavItem extends StatelessWidget {
   final String title;
   final bool selected;
   final ValueChanged<int> onTap;
+  final bool showBadge;
 
   @override
   Widget build(BuildContext context) {
@@ -1301,13 +1307,23 @@ class _NavItem extends StatelessWidget {
                   color: selected ? _ProfilePalette.peach : Colors.transparent,
                   borderRadius: BorderRadius.circular(24),
                 ),
-                child: Icon(
-                  icon,
-                  size: 22,
-                  color: selected
-                      ? _ProfilePalette.coffee
-                      : _ProfilePalette.muted,
-                ),
+                child: showBadge
+                    ? NotificationBadge(
+                        child: Icon(
+                          icon,
+                          size: 22,
+                          color: selected
+                              ? _ProfilePalette.coffee
+                              : _ProfilePalette.muted,
+                        ),
+                      )
+                    : Icon(
+                        icon,
+                        size: 22,
+                        color: selected
+                            ? _ProfilePalette.coffee
+                            : _ProfilePalette.muted,
+                      ),
               ),
               const SizedBox(height: 4),
               Text(

@@ -1,15 +1,9 @@
 import 'package:flutter/material.dart';
 
-import '../../core/theme/app_colors.dart';
 import '../../services/api_client.dart';
 import '../../services/auth_service.dart';
-import '../../widgets/auth_shell.dart';
-import '../../widgets/heritage_badge.dart';
-import '../../widgets/heritage_button.dart';
-import '../../widgets/heritage_card.dart';
+import '../../widgets/heritage_auth_ui.dart';
 import '../../widgets/heritage_message.dart';
-import '../../widgets/heritage_section_title.dart';
-import '../../widgets/heritage_text_field.dart';
 import 'forgot_password_verify_screen.dart';
 
 class ForgotPasswordScreen extends StatefulWidget {
@@ -70,95 +64,135 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return AuthShell(
+    return HeritageAuthShell(
       showBack: true,
+      badgeLabel: 'Account Recovery',
+      badgeIcon: Icons.key_outlined,
+      heroTitle: 'Recover your heritage access',
+      heroSubtitle: 'Confirm your details and continue with a secure reset.',
+      title: 'Forgot Password',
+      subtitle:
+          'Enter at least two account details. We will send a verification code to your registered email.',
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const HeritageBadge(
-            label: 'Account Recovery',
-            icon: Icons.key_outlined,
+          const HeritageAuthNotice(
+            icon: Icons.verified_user_outlined,
+            title: 'Identity check',
+            message:
+                'At least 2 of the 3 details below must match the same account before a reset code is sent.',
           ),
-          const SizedBox(height: 10),
-          const HeritageSectionTitle(
-            title: 'Forgot Password',
-            subtitle:
-                'Enter at least two account details. We will send an archival verification code to your registered email.',
-          ),
-          const SizedBox(height: 14),
-          const HeritageCard(
-            color: AppColors.surfaceWarm,
-            child: Row(
+          const SizedBox(height: 15),
+          HeritageAuthCard(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Icon(Icons.inventory_2_outlined, color: AppColors.primary),
-                SizedBox(width: 10),
-                Expanded(
-                  child: Text(
-                    'ACCOUNT RECOVERY\nIdentity matching uses your stored account details.',
-                    style: TextStyle(fontSize: 9.8, height: 1.4),
+                const Row(
+                  children: [
+                    Icon(
+                      Icons.manage_search_rounded,
+                      color: HeritageAuthColors.primaryDark,
+                      size: 22,
+                    ),
+                    SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        'Find Your Account',
+                        style: TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w800,
+                          color: HeritageAuthColors.text,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                HeritageAuthField(
+                  controller: _email,
+                  label: 'Registered email',
+                  hint: 'name@example.com',
+                  icon: Icons.mail_outline,
+                  keyboardType: TextInputType.emailAddress,
+                ),
+                const SizedBox(height: 13),
+                HeritageAuthField(
+                  controller: _username,
+                  label: 'Username',
+                  hint: 'your username',
+                  icon: Icons.person_outline,
+                ),
+                const SizedBox(height: 13),
+                HeritageAuthField(
+                  controller: _phone,
+                  label: 'Phone number',
+                  hint: '07XXXXXXXX',
+                  icon: Icons.phone_outlined,
+                  keyboardType: TextInputType.phone,
+                ),
+                const SizedBox(height: 13),
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: HeritageAuthColors.inputSurface,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: HeritageAuthColors.border),
                   ),
+                  child: const Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Icon(
+                        Icons.info_outline_rounded,
+                        size: 17,
+                        color: HeritageAuthColors.muted,
+                      ),
+                      SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          'Use the details saved on your Ceylon Heritage account.',
+                          style: TextStyle(
+                            fontSize: 10.5,
+                            height: 1.45,
+                            color: HeritageAuthColors.muted,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 16),
+                HeritageAuthPrimaryButton(
+                  label: 'Send verification code',
+                  onPressed: _send,
+                  loading: _loading,
+                  icon: Icons.mark_email_read_outlined,
                 ),
               ],
             ),
-          ),
-          const SizedBox(height: 16),
-          HeritageTextField(
-            controller: _email,
-            label: 'Registered email',
-            hint: 'name@example.com',
-            icon: Icons.mail_outline,
-            keyboardType: TextInputType.emailAddress,
-          ),
-          const SizedBox(height: 12),
-          HeritageTextField(
-            controller: _username,
-            label: 'Username',
-            hint: 'your username',
-            icon: Icons.person_outline,
-          ),
-          const SizedBox(height: 12),
-          HeritageTextField(
-            controller: _phone,
-            label: 'Phone number',
-            hint: '07XXXXXXXX',
-            icon: Icons.phone_outlined,
-            keyboardType: TextInputType.phone,
-          ),
-          const SizedBox(height: 10),
-          const Text(
-            'At least 2 of the 3 details above must match the same account.',
-            style: TextStyle(fontSize: 10.5, color: AppColors.textMuted),
-          ),
-          const SizedBox(height: 16),
-          HeritagePrimaryButton(
-            label: 'Send verification code',
-            onPressed: _send,
-            loading: _loading,
           ),
           const SizedBox(height: 12),
           Center(
             child: TextButton.icon(
               onPressed: () => Navigator.pop(context),
+              style: TextButton.styleFrom(
+                foregroundColor: HeritageAuthColors.primaryDark,
+              ),
               icon: const Icon(Icons.arrow_back_rounded, size: 16),
-              label: const Text('Back to Log in'),
+              label: const Text(
+                'Back to Log in',
+                style: TextStyle(fontWeight: FontWeight.w800),
+              ),
             ),
           ),
           const SizedBox(height: 12),
-          const HeritageCard(
-            color: AppColors.greenSoft,
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Icon(Icons.support_agent_rounded, color: AppColors.green),
-                SizedBox(width: 10),
-                Expanded(
-                  child: Text(
-                    'Need help accessing your pass? Check your spam folder or contact the archival registry desk if you no longer have access to the email.',
-                    style: TextStyle(fontSize: 10, height: 1.4),
-                  ),
-                ),
-              ],
-            ),
+          const HeritageAuthNotice(
+            icon: Icons.support_agent_rounded,
+            title: 'Still need help?',
+            message:
+                'Check your spam folder after requesting a code, or contact support if you no longer have access to your email.',
+            color: HeritageAuthColors.successSoft,
+            iconColor: HeritageAuthColors.success,
           ),
         ],
       ),

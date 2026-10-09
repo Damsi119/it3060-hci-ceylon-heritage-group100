@@ -1,10 +1,22 @@
+import 'package:flutter/foundation.dart';
+
 class ApiConfig {
   ApiConfig._();
 
-  static const String baseUrl = String.fromEnvironment(
+  static const String _configuredBaseUrl = String.fromEnvironment(
     'API_BASE_URL',
-    defaultValue: 'http://10.0.2.2:8081',
   );
+
+  static String get baseUrl {
+    if (_configuredBaseUrl.isNotEmpty) return _configuredBaseUrl;
+
+    if (kIsWeb) {
+      final host = Uri.base.host;
+      if (host.isNotEmpty) return 'http://$host:8081';
+    }
+
+    return 'http://10.0.2.2:8081';
+  }
 
   static const String googleServerClientId = String.fromEnvironment(
     'GOOGLE_SERVER_CLIENT_ID',

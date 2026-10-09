@@ -5,6 +5,7 @@ import '../../core/constants/api_config.dart';
 import '../../models/user_profile.dart';
 import '../../services/api_client.dart';
 import '../../widgets/heritage_logo.dart';
+import '../../widgets/notification_badge.dart';
 import '../explore/historical_place_details_screen.dart';
 import '../explore/historical_places_screen.dart';
 import '../community/community_feed_screen.dart';
@@ -650,7 +651,9 @@ class _HeritageHomeScreenState extends State<HeritageHomeScreen> {
                     foregroundColor: _heading,
                   ),
                   onPressed: _notifications,
-                  icon: const Icon(Icons.notifications_none_outlined),
+                  icon: const NotificationBadge(
+                    child: Icon(Icons.notifications_none_outlined),
+                  ),
                 ),
                 const SizedBox(width: 8),
                 _profileAvatarButton(),

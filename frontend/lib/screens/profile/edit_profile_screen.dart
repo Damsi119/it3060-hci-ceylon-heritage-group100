@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../../core/constants/api_config.dart';
 import '../../models/user_profile.dart';
 import '../../services/api_client.dart';
 import '../../services/user_service.dart';
@@ -62,6 +63,17 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   String get _initial {
     final name = widget.user.displayName.trim();
     return name.isEmpty ? 'U' : name[0].toUpperCase();
+  }
+
+  String? _absoluteImageUrl(String? value) {
+    final clean = value?.trim();
+    if (clean == null || clean.isEmpty) return null;
+    if (clean.startsWith('http://') || clean.startsWith('https://')) {
+      return clean;
+    }
+    final baseUrl = ApiConfig.baseUrl.replaceFirst(RegExp(r'/+$'), '');
+    final path = clean.startsWith('/') ? clean : '/$clean';
+    return '$baseUrl$path';
   }
 
   Future<void> _save() async {
@@ -154,24 +166,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
               child: Stack(
                 fit: StackFit.expand,
                 children: [
-                  Image.asset(
-                    'assets/images/heritage_login_banner.webp',
-                    fit: BoxFit.cover,
-                    alignment: const Alignment(0.25, 0),
-                    errorBuilder: (_, _, _) => const DecoratedBox(
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                          colors: [
-                            Color(0xFFCADDED),
-                            Color(0xFFFFD7B0),
-                            Color(0xFFAE6030),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
+                  _buildCoverImage(),
                   const DecoratedBox(
                     decoration: BoxDecoration(
                       gradient: LinearGradient(
@@ -275,15 +270,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                   ],
                 ),
                 alignment: Alignment.center,
-                child: Text(
-                  _initial,
-                  style: const TextStyle(
-                    fontFamily: 'serif',
-                    fontSize: 49,
-                    fontWeight: FontWeight.w800,
-                    color: _EditPalette.coffee,
-                  ),
-                ),
+                child: _buildAvatarImage(99),
               ),
             ),
           ),
@@ -476,6 +463,61 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
             textInputAction: TextInputAction.done,
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildCoverImage() {
+    final coverUrl = _absoluteImageUrl(widget.user.coverImageUrl);
+    if (coverUrl != null) {
+      return Image.network(
+        coverUrl,
+        fit: BoxFit.cover,
+        alignment: Alignment.center,
+        errorBuilder: (_, _, _) => _defaultCoverImage(),
+      );
+    }
+
+    return _defaultCoverImage();
+  }
+
+  Widget _defaultCoverImage() {
+    return const DecoratedBox(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [Color(0xFFCADDED), Color(0xFFFFD7B0), Color(0xFFAE6030)],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildAvatarImage(double size) {
+    final profileUrl = _absoluteImageUrl(widget.user.profileImageUrl);
+    if (profileUrl != null) {
+      return ClipOval(
+        child: Image.network(
+          profileUrl,
+          width: size,
+          height: size,
+          fit: BoxFit.cover,
+          errorBuilder: (_, _, _) => _avatarInitial(),
+        ),
+      );
+    }
+
+    return _avatarInitial();
+  }
+
+  Widget _avatarInitial() {
+    return Text(
+      _initial,
+      style: const TextStyle(
+        fontFamily: 'serif',
+        fontSize: 49,
+        fontWeight: FontWeight.w800,
+        color: _EditPalette.coffee,
       ),
     );
   }

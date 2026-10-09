@@ -7,6 +7,7 @@ import 'package:http_parser/http_parser.dart';
 import '../core/constants/api_config.dart';
 import '../models/user_profile.dart';
 import 'api_client.dart';
+import 'notification_center.dart';
 import 'token_store.dart';
 
 class UserService {
@@ -223,6 +224,7 @@ class UserService {
       await _api.post('/api/users/logout');
     } finally {
       await TokenStore.clear();
+      NotificationCenter.instance.stop(clear: true);
     }
   }
 
@@ -234,6 +236,7 @@ class UserService {
             )
             as Map<String, dynamic>;
     await TokenStore.clear();
+    NotificationCenter.instance.stop(clear: true);
     return data['message'] as String? ?? 'Account deleted';
   }
 }

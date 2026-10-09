@@ -27,4 +27,11 @@ public class NotificationDto {
             List<NotificationResponse> notifications
 
     ) {}
+
+
+    public record UnreadCountResponse(
+
+            long unreadCount
+
+    ) {}
 }

@@ -2,17 +2,16 @@ package com.ceylonheritage.backend.service.serviceimpl;
 
 import com.ceylonheritage.backend.Dtos.GuideDto;
 import com.ceylonheritage.backend.entities.GuideProfile;
-import com.ceylonheritage.backend.entities.Notification;
 import com.ceylonheritage.backend.entities.User;
 import com.ceylonheritage.backend.enums.AuthProvider;
 import com.ceylonheritage.backend.enums.GuideApplicationStatus;
 import com.ceylonheritage.backend.enums.Role;
 import com.ceylonheritage.backend.exception.UserException;
 import com.ceylonheritage.backend.repository.GuideProfileRepository;
-import com.ceylonheritage.backend.repository.NotificationRepository;
 import com.ceylonheritage.backend.repository.UserRepository;
 import com.ceylonheritage.backend.service.EmailService;
 import com.ceylonheritage.backend.service.GuideService;
+import com.ceylonheritage.backend.service.NotificationService;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -39,20 +38,20 @@ public class GuideServiceImpl implements GuideService {
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
     private final EmailService emailService;
-    private final NotificationRepository notificationRepository;
+    private final NotificationService notificationService;
 
     public GuideServiceImpl(
             GuideProfileRepository guideProfileRepository,
             UserRepository userRepository,
             PasswordEncoder passwordEncoder,
             EmailService emailService,
-            NotificationRepository notificationRepository
+            NotificationService notificationService
     ) {
         this.guideProfileRepository = guideProfileRepository;
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
         this.emailService = emailService;
-        this.notificationRepository = notificationRepository;
+        this.notificationService = notificationService;
     }
 
 
@@ -106,6 +105,15 @@ public class GuideServiceImpl implements GuideService {
                 .build();
 
         guideProfileRepository.save(profile);
+
+        notificationService.createForRole(
+                Role.ADMIN,
+                "New guide request",
+                profile.getName()
+                        + " submitted a guide request for "
+                        + profile.getPrimaryServiceArea()
+                        + "."
+        );
 
         return toResponse(profile);
     }
@@ -275,11 +283,11 @@ public class GuideServiceImpl implements GuideService {
 
         guideProfileRepository.save(profile);
 
-        notificationRepository.save(Notification.builder()
-                .user(guide)
-                .title("Guide account approved")
-                .message("Your guide account has been approved. Please change your temporary password after login.")
-                .build());
+        notificationService.createForUser(
+                guide,
+                "Guide account approved",
+                "Your guide account has been approved. Please change your temporary password after login."
+        );
 
         emailService.sendGuideApprovedCredentials(
                 guide.getEmail(),

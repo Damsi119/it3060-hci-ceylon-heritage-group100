@@ -2,15 +2,10 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
-import '../../core/theme/app_colors.dart';
 import '../../services/api_client.dart';
 import '../../services/auth_service.dart';
-import '../../widgets/auth_shell.dart';
-import '../../widgets/heritage_badge.dart';
-import '../../widgets/heritage_button.dart';
-import '../../widgets/heritage_card.dart';
+import '../../widgets/heritage_auth_ui.dart';
 import '../../widgets/heritage_message.dart';
-import '../../widgets/heritage_section_title.dart';
 import '../../widgets/otp_code_input.dart';
 import 'login_screen.dart';
 
@@ -118,93 +113,109 @@ class _EmailVerificationScreenState extends State<EmailVerificationScreen> {
     final parts = widget.email.split('@');
     if (parts.length != 2 || parts.first.length < 2) return widget.email;
     final name = parts.first;
-    return '${name.substring(0, 2)}••••@${parts.last}';
+    return '${name.substring(0, 2)}****@${parts.last}';
   }
 
   @override
   Widget build(BuildContext context) {
-    return AuthShell(
+    return HeritageAuthShell(
       showBack: true,
+      badgeLabel: 'Email Security',
+      badgeIcon: Icons.shield_outlined,
+      heroTitle: 'Confirm your email',
+      heroSubtitle: 'One code completes your Ceylon Heritage registration.',
+      title: 'Verify your email',
+      subtitle: 'We sent a 6-digit verification code to your registered email.',
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const HeritageBadge(
-            label: 'Two-factor security',
-            icon: Icons.shield_outlined,
-          ),
-          const SizedBox(height: 10),
-          const HeritageSectionTitle(
-            title: 'Verify your email',
-            subtitle:
-                'We sent a 6-digit archaeological access code to your registered email.',
-          ),
-          const SizedBox(height: 14),
-          HeritageCard(
-            color: AppColors.surfaceWarm,
-            child: Row(
-              children: [
-                const Icon(
-                  Icons.mail_outline_rounded,
-                  color: AppColors.primary,
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Text(
-                    'Enter the 6-digit code dispatched to $_maskedEmail',
-                    style: const TextStyle(fontSize: 10.5, height: 1.4),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 18),
-          OtpCodeInput(controller: _code),
-          const SizedBox(height: 16),
-          HeritagePrimaryButton(
-            label: 'Verify code',
-            onPressed: _verify,
-            loading: _loading,
-          ),
-          const SizedBox(height: 10),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Text(
-                _seconds > 0
-                    ? 'Resend code in 00:${_seconds.toString().padLeft(2, '0')}'
-                    : 'Didn\'t receive the code?',
-                style: const TextStyle(
-                  fontSize: 10.5,
-                  color: AppColors.textMuted,
-                ),
-              ),
-              const SizedBox(width: 6),
-              TextButton(
-                onPressed: _seconds == 0 && !_resending ? _resend : null,
-                child: Text(_resending ? 'Sending...' : 'Resend'),
-              ),
-            ],
-          ),
-          const SizedBox(height: 14),
-          const HeritageCard(
-            color: AppColors.greenSoft,
-            child: Row(
+          HeritageAuthCard(
+            child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Icon(
-                  Icons.lock_outline_rounded,
-                  size: 19,
-                  color: AppColors.green,
+                Row(
+                  children: [
+                    Container(
+                      width: 40,
+                      height: 40,
+                      decoration: BoxDecoration(
+                        color: HeritageAuthColors.soft,
+                        borderRadius: BorderRadius.circular(11),
+                      ),
+                      child: const Icon(
+                        Icons.mail_outline_rounded,
+                        color: HeritageAuthColors.primaryDark,
+                        size: 21,
+                      ),
+                    ),
+                    const SizedBox(width: 11),
+                    Expanded(
+                      child: Text(
+                        'Code sent to $_maskedEmail',
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontSize: 12.5,
+                          height: 1.4,
+                          fontWeight: FontWeight.w700,
+                          color: HeritageAuthColors.text,
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
-                SizedBox(width: 10),
-                Expanded(
-                  child: Text(
-                    'Passcodes expire in 5 minutes to protect your account.',
-                    style: TextStyle(fontSize: 10, height: 1.4),
-                  ),
+                const SizedBox(height: 18),
+                OtpCodeInput(
+                  controller: _code,
+                  activeColor: HeritageAuthColors.primary,
+                  borderColor: HeritageAuthColors.border,
+                  fillColor: HeritageAuthColors.inputSurface,
+                  textColor: HeritageAuthColors.primaryDark,
+                ),
+                const SizedBox(height: 16),
+                HeritageAuthPrimaryButton(
+                  label: 'Verify code',
+                  onPressed: _verify,
+                  loading: _loading,
+                  icon: Icons.verified_rounded,
+                ),
+                const SizedBox(height: 10),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Flexible(
+                      child: Text(
+                        _seconds > 0
+                            ? 'Resend code in 00:${_seconds.toString().padLeft(2, '0')}'
+                            : 'Did not receive the code?',
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(
+                          fontSize: 10.5,
+                          color: HeritageAuthColors.muted,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                    TextButton(
+                      onPressed: _seconds == 0 && !_resending ? _resend : null,
+                      style: TextButton.styleFrom(
+                        foregroundColor: HeritageAuthColors.primaryDark,
+                      ),
+                      child: Text(
+                        _resending ? 'Sending...' : 'Resend',
+                        style: const TextStyle(fontWeight: FontWeight.w800),
+                      ),
+                    ),
+                  ],
                 ),
               ],
             ),
+          ),
+          const SizedBox(height: 14),
+          const HeritageAuthNotice(
+            icon: Icons.lock_outline_rounded,
+            title: 'Code safety',
+            message: 'Verification codes expire in 5 minutes.',
           ),
         ],
       ),
