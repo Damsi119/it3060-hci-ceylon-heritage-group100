@@ -28,9 +28,4 @@ class ApiConfig {
     'GOOGLE_PLACES_API_KEY',
     defaultValue: '',
   );
-
-  static const String googlePlacesApiKey = String.fromEnvironment(
-    'GOOGLE_PLACES_API_KEY',
-    defaultValue: '',
-  );
 }

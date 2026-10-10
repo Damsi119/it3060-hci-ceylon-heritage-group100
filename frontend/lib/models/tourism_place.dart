@@ -31,6 +31,26 @@
       ? '${(distanceMeters / 1000).toStringAsFixed(1)} km'
       : '$distanceMeters m';
 
+  TourismPlace copyWith({String? name}) => TourismPlace(
+        id: id,
+        slug: slug,
+        name: name ?? this.name,
+        category: category,
+        description: description,
+        address: address,
+        city: city,
+        province: province,
+        rating: rating,
+        reviewCount: reviewCount,
+        distanceMeters: distanceMeters,
+        isOpen: isOpen,
+        openingHours: openingHours,
+        priceRange: priceRange,
+        latitude: latitude,
+        longitude: longitude,
+        imageUrl: imageUrl,
+      );
+
   factory TourismPlace.fromJson(Map<String, dynamic> json) => TourismPlace(
         id: (json['id'] as num).toInt(),
         slug: json['slug'] as String? ?? '',
