@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 
 import '../models/place_review.dart';
 import '../services/tourism_service.dart';
@@ -65,6 +65,58 @@ class _ReviewsScreenState extends State<ReviewsScreen> {
       ),
     );
     if (mounted) _load();
+  }
+
+  bool _isMyReview(PlaceReview review) =>
+      review.authorName.toLowerCase() == 'you' ||
+      review.authorLabel.toLowerCase() == 'your review';
+
+  Future<void> _editReview(PlaceReview review) async {
+    await Navigator.push<bool>(
+      context,
+      MaterialPageRoute(
+        builder: (_) => AddReviewScreen(
+          placeId: widget.placeId,
+          placeName: widget.placeName,
+          review: review,
+        ),
+      ),
+    );
+    if (mounted) _load();
+  }
+
+  Future<void> _deleteReview(PlaceReview review) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Delete your review?'),
+        content: const Text('This review will be removed from this place.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+    try {
+      await TourismService.instance.deleteReview(widget.placeId, review);
+      if (!mounted) return;
+      _load();
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Your review was deleted.')),
+      );
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Could not delete review: $error')),
+      );
+    }
   }
 
   @override
@@ -135,7 +187,7 @@ class _ReviewsScreenState extends State<ReviewsScreen> {
               TextButton.icon(
                 onPressed: _writeReview,
                 icon: const Icon(Icons.add, size: 14),
-                label: const Text('Write', style: TextStyle(fontSize: 9)),
+                label: const Text('Add Review', style: TextStyle(fontSize: 9)),
                 style: TextButton.styleFrom(
                   foregroundColor: const Color(0xFF824A2B),
                   visualDensity: VisualDensity.compact,
@@ -177,8 +229,15 @@ class _ReviewsScreenState extends State<ReviewsScreen> {
                   padding: const EdgeInsets.fromLTRB(17, 0, 17, 20),
                   itemCount: _reviews.length,
                   separatorBuilder: (_, __) => const SizedBox(height: 9),
-                  itemBuilder: (context, index) =>
-                      _ReviewCard(review: _reviews[index]),
+                  itemBuilder: (context, index) {
+                    final review = _reviews[index];
+                    return _ReviewCard(
+                      review: review,
+                      isMine: _isMyReview(review),
+                      onEdit: () => _editReview(review),
+                      onDelete: () => _deleteReview(review),
+                    );
+                  },
                 ),
         ),
       ],
@@ -188,8 +247,16 @@ class _ReviewsScreenState extends State<ReviewsScreen> {
 }
 
 class _ReviewCard extends StatelessWidget {
-  const _ReviewCard({required this.review});
+  const _ReviewCard({
+    required this.review,
+    required this.isMine,
+    required this.onEdit,
+    required this.onDelete,
+  });
   final PlaceReview review;
+  final bool isMine;
+  final VoidCallback onEdit;
+  final VoidCallback onDelete;
   @override
   Widget build(BuildContext context) => Container(
     padding: const EdgeInsets.all(11),
@@ -243,12 +310,21 @@ class _ReviewCard extends StatelessWidget {
             ),
             Text(
               '★' * review.rating,
-              style: const TextStyle(
-                fontSize: 11,
-                color: Color(0xFFE99030),
-                letterSpacing: 1,
-              ),
+              style: const TextStyle(fontSize: 11, color: Color(0xFFE99030), letterSpacing: 1),
             ),
+            if (isMine)
+              PopupMenuButton<String>(
+                tooltip: 'Manage your review',
+                padding: EdgeInsets.zero,
+                onSelected: (action) {
+                  if (action == 'edit') onEdit();
+                  if (action == 'delete') onDelete();
+                },
+                itemBuilder: (_) => const [
+                  PopupMenuItem(value: 'edit', child: Text('Edit')),
+                  PopupMenuItem(value: 'delete', child: Text('Delete')),
+                ],
+              ),
           ],
         ),
         const SizedBox(height: 8),

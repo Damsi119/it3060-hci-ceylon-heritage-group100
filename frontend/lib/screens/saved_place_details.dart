@@ -4,6 +4,7 @@ import '../models/tourism_place.dart';
 import '../services/tourism_service.dart';
 import '../widgets/tourism_bottom_nav.dart';
 import '../widgets/place_image.dart';
+import '../widgets/place_reviews_preview.dart';
 import 'add_review.dart';
 import 'reviews.dart';
 
@@ -382,6 +383,13 @@ class _SavedPlaceDetailsScreenState extends State<SavedPlaceDetailsScreen> {
                       ),
                     ),
                   ],
+                ),
+                const SizedBox(height: 14),
+                PlaceReviewsPreview(
+                  placeId: widget.place.id,
+                  placeName: widget.place.name,
+                  initialRating: widget.place.rating,
+                  initialReviewCount: widget.place.reviewCount,
                 ),
               ],
             ),

@@ -7,11 +7,13 @@ import 'package:latlong2/latlong.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../models/tourism_place.dart';
+import '../models/weather_forecast.dart';
 import '../services/tourism_service.dart';
 import '../widgets/place_image.dart';
 import '../widgets/tourism_bottom_nav.dart';
 import 'place_recommendations.dart';
 import 'restaurant_details.dart';
+import 'live_weather.dart';
 
 /// Nearby places landing screen backed by the places API.
 class NearbyPlacesScreen extends StatefulWidget {
@@ -32,6 +34,8 @@ class _NearbyPlacesScreenState extends State<NearbyPlacesScreen> {
   LatLng? _searchCenter;
   String? _locationMessage;
   String? _error;
+  WeatherForecast? _weather;
+  bool _weatherLoading = true;
   int _loadSequence = 0;
   static const _categories = ['All', 'Restaurants', 'Hotels', 'Shops'];
 
@@ -39,6 +43,19 @@ class _NearbyPlacesScreenState extends State<NearbyPlacesScreen> {
   void initState() {
     super.initState();
     _loadPlaces();
+    _loadWeather();
+  }
+
+  Future<void> _loadWeather() async {
+    try {
+      final weather = await TourismService.instance.getWeather();
+      if (mounted) setState(() {
+        _weather = weather;
+        _weatherLoading = false;
+      });
+    } catch (_) {
+      if (mounted) setState(() => _weatherLoading = false);
+    }
   }
 
   @override
@@ -188,7 +205,7 @@ class _NearbyPlacesScreenState extends State<NearbyPlacesScreen> {
   }
 
   List<Widget> _buildPlaceSections(BuildContext context) {
-    if (_places.isEmpty) {
+    if (_places.isEmpty && (_category != 'All' || _searchController.text.trim().isNotEmpty)) {
       return const [
         Padding(
           padding: EdgeInsets.all(20),
@@ -212,20 +229,28 @@ class _NearbyPlacesScreenState extends State<NearbyPlacesScreen> {
       ];
     }
 
+    final featured = _featuredGallePlaces;
+    final widgets = <Widget>[
+      _SectionHeading(title: 'Recommended Visiting Places', action: ''),
+      const SizedBox(height: 9),
+      ..._buildPlaceCards(
+        context,
+        featured.map((item) => item.$2).toList(),
+        titles: featured.map((item) => item.$1).toList(),
+      ),
+    ];
     const sections = <(String, Set<String>)>[
-      ('Recommended Visiting Places', {'HERITAGE', 'MUSEUM'}),
       ('Restaurants Nearby', {'RESTAURANTS'}),
       ('Shops Nearby', {'SHOPS'}),
       ('Hotels Nearby', {'HOTELS'}),
     ];
-    final widgets = <Widget>[];
     for (final (title, categories) in sections) {
       final places = _nearbyPlaces
           .where((place) => categories.contains(place.category))
           .take(3)
           .toList();
       if (places.isEmpty) continue;
-      if (widgets.isNotEmpty) widgets.add(const SizedBox(height: 14));
+      widgets.add(const SizedBox(height: 14));
       widgets.add(_SectionHeading(title: title, action: ''));
       widgets.add(const SizedBox(height: 9));
       widgets.addAll(_buildPlaceCards(context, places));
@@ -241,13 +266,58 @@ class _NearbyPlacesScreenState extends State<NearbyPlacesScreen> {
     return widgets;
   }
 
+  List<(String, TourismPlace)> get _featuredGallePlaces {
+    final specs = <({String title, String matcher, String category, String slug, int id, double latitude, double longitude})>[
+      (title: 'Galle Fort', matcher: 'galle fort', category: 'HERITAGE', slug: 'galle-fort', id: 900001, latitude: 6.0260, longitude: 80.2170),
+      (title: 'Clock Tower', matcher: 'clock tower', category: 'HERITAGE', slug: 'galle-clock-tower', id: 900002, latitude: 6.0272, longitude: 80.2161),
+      (title: 'Hotel Jetwing', matcher: 'jetwing', category: 'HOTELS', slug: 'hotel-jetwing', id: 900003, latitude: 6.0114, longitude: 80.2490),
+    ];
+    return [
+      for (final spec in specs)
+        (
+          spec.title,
+          _featuredPlaceFor(spec),
+        ),
+    ];
+  }
+
+  TourismPlace _featuredPlaceFor(
+    ({String title, String matcher, String category, String slug, int id, double latitude, double longitude}) spec,
+  ) {
+    final matches = _nearbyPlaces.where((place) {
+      final name = place.name.toLowerCase();
+      return name.contains(spec.matcher) ||
+          (spec.title == 'Galle Fort' && name.contains('old town of galle'));
+    });
+    if (matches.isNotEmpty) return matches.first.copyWith(name: spec.title);
+    return TourismPlace(
+      id: spec.id,
+      slug: spec.slug,
+      name: spec.title,
+      category: spec.category,
+      description: '${spec.title} in Galle, Sri Lanka.',
+      address: spec.title,
+      city: 'Galle',
+      province: 'Southern Province',
+      rating: 0,
+      reviewCount: 0,
+      distanceMeters: 0,
+      isOpen: true,
+      latitude: spec.latitude,
+      longitude: spec.longitude,
+    );
+  }
+
   List<Widget> _buildPlaceCards(
     BuildContext context,
-    List<TourismPlace> places,
+    List<TourismPlace> places, {
+    List<String>? titles,
+  }
   ) => [
     for (var index = 0; index < places.length; index++) ...[
       _PlaceCard(
         place: places[index],
+        title: titles == null ? null : titles[index],
         distanceMeters: _distanceFor(places[index]),
         onTap: () => Navigator.push(
           context,
@@ -391,6 +461,16 @@ class _NearbyPlacesScreenState extends State<NearbyPlacesScreen> {
                       style: TextStyle(fontSize: 9, color: Color(0xFF68716D)),
                     ),
                   ),
+                  const SizedBox(height: 11),
+                  _NearbyWeatherCard(
+                    weather: _weather,
+                    loading: _weatherLoading,
+                    onTap: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => const LiveWeatherScreen()),
+                    ),
+                    onRetry: _loadWeather,
+                  ),
                   const SizedBox(height: 15),
                   if (_loading)
                     const Padding(
@@ -429,6 +509,75 @@ const _title = TextStyle(
 const _subtle = TextStyle(fontSize: 11, color: Color(0xFF68716D));
 const _brown = Color(0xFF824A2B);
 const _line = Color(0xFFE9E2DB);
+
+class _NearbyWeatherCard extends StatelessWidget {
+  const _NearbyWeatherCard({
+    required this.weather,
+    required this.loading,
+    required this.onTap,
+    required this.onRetry,
+  });
+
+  final WeatherForecast? weather;
+  final bool loading;
+  final VoidCallback onTap;
+  final VoidCallback onRetry;
+
+  @override
+  Widget build(BuildContext context) => Material(
+    color: Colors.white,
+    borderRadius: BorderRadius.circular(15),
+    child: InkWell(
+      onTap: loading || weather == null ? onRetry : onTap,
+      borderRadius: BorderRadius.circular(15),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 11),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(15),
+          border: Border.all(color: _line),
+        ),
+        child: loading
+            ? const Row(
+                children: [
+                  SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2)),
+                  SizedBox(width: 10),
+                  Text('Loading local weather…', style: TextStyle(fontSize: 11, color: Color(0xFF53605A))),
+                ],
+              )
+            : weather == null
+            ? const Row(
+                children: [
+                  Icon(Icons.cloud_off_outlined, color: _brown),
+                  SizedBox(width: 9),
+                  Expanded(child: Text('Weather unavailable. Tap to retry.', style: TextStyle(fontSize: 11, color: Color(0xFF53605A)))),
+                  Icon(Icons.refresh, size: 17, color: _brown),
+                ],
+              )
+            : Row(
+                children: [
+                  const Icon(Icons.wb_cloudy_outlined, size: 30, color: Color(0xFFE99030)),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(weather!.demoData ? 'LOCAL WEATHER' : 'LIVE WEATHER', style: const TextStyle(fontSize: 8, letterSpacing: .7, color: Color(0xFF68716D), fontWeight: FontWeight.w700)),
+                        const SizedBox(height: 2),
+                        Text('${weather!.location} · ${weather!.condition}', maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: Color(0xFF252D29))),
+                        Text('Humidity ${weather!.humidityPercent}%  ·  Wind ${weather!.windKmh} km/h', style: const TextStyle(fontSize: 9, color: Color(0xFF68716D))),
+                      ],
+                    ),
+                  ),
+                  Text('${weather!.temperatureCelsius}°', style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w800, color: Color(0xFF252D29))),
+                  const SizedBox(width: 4),
+                  const Icon(Icons.chevron_right, size: 18, color: Color(0xFF87918B)),
+                ],
+              ),
+      ),
+    ),
+  );
+}
 
 class _CategoryChips extends StatelessWidget {
   const _CategoryChips({
@@ -479,10 +628,12 @@ class _PlaceCard extends StatelessWidget {
     required this.place,
     required this.distanceMeters,
     required this.onTap,
+    this.title,
   });
   final TourismPlace place;
   final int distanceMeters;
   final VoidCallback onTap;
+  final String? title;
   @override
   Widget build(BuildContext context) => Container(
     padding: const EdgeInsets.all(9),
@@ -505,7 +656,7 @@ class _PlaceCard extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  place.name,
+                  title ?? place.name,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(

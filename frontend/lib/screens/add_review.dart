@@ -1,5 +1,9 @@
+import 'dart:typed_data';
+
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 
+import '../models/place_review.dart';
 import '../services/tourism_service.dart';
 import '../widgets/tourism_bottom_nav.dart';
 
@@ -9,10 +13,12 @@ class AddReviewScreen extends StatefulWidget {
     super.key,
     required this.placeId,
     this.placeName = 'Galle Fort',
+    this.review,
   });
 
   final int placeId;
   final String placeName;
+  final PlaceReview? review;
 
   @override
   State<AddReviewScreen> createState() => _AddReviewScreenState();
@@ -20,7 +26,40 @@ class AddReviewScreen extends StatefulWidget {
 
 class _AddReviewScreenState extends State<AddReviewScreen> {
   int _rating = 0;
+  final List<Uint8List> _photos = <Uint8List>[];
+  bool _pickingPhotos = false;
   final _review = TextEditingController();
+
+  Future<void> _pickPhotos() async {
+    if (_pickingPhotos || _photos.length >= 5) return;
+    setState(() => _pickingPhotos = true);
+    try {
+      final List<PlatformFile> picked = await FilePicker.pickFiles(
+        type: FileType.image,
+        allowMultiple: true,
+      );
+      if (!mounted || picked.isEmpty) return;
+      final files = <Uint8List>[];
+      for (final file in picked) {
+        if (await file.length() > 5 * 1024 * 1024) continue;
+        final bytes = await file.readAsBytes();
+        if (bytes.isNotEmpty && _photos.length + files.length < 5) {
+          files.add(bytes);
+        }
+      }
+      setState(() => _photos.addAll(files));
+    } catch (_) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Could not select photos.')));
+    } finally {
+      if (mounted) setState(() => _pickingPhotos = false);
+    }
+  }
+  @override
+  void initState() {
+    super.initState();
+    _rating = widget.review?.rating ?? 0;
+    _review.text = widget.review?.comment ?? '';
+  }
 
   @override
   void dispose() {
@@ -41,9 +80,9 @@ class _AddReviewScreenState extends State<AddReviewScreen> {
       title: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            'Write a Review',
-            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
+          Text(
+            widget.review == null ? 'Write a Review' : 'Edit Your Review',
+            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
           ),
           Text(
             '${widget.placeName}, Sri Lanka',
@@ -130,11 +169,7 @@ class _AddReviewScreenState extends State<AddReviewScreen> {
         Row(
           children: [
             InkWell(
-              onTap: () => ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('Photo picker will be connected later.'),
-                ),
-              ),
+              onTap: _pickPhotos,
               child: Container(
                 width: 58,
                 height: 62,
@@ -197,14 +232,27 @@ class _AddReviewScreenState extends State<AddReviewScreen> {
               return;
             }
             try {
-              await TourismService.instance.submitReview(
-                placeId: widget.placeId,
-                rating: _rating,
-                comment: _review.text.trim(),
-              );
+              if (widget.review == null) {
+                await TourismService.instance.submitReview(
+                  placeId: widget.placeId,
+                  rating: _rating,
+                  comment: _review.text.trim(),
+                );
+              } else {
+                await TourismService.instance.updateReview(
+                  placeId: widget.placeId,
+                  review: widget.review!,
+                  rating: _rating,
+                  comment: _review.text.trim(),
+                );
+              }
               if (!context.mounted) return;
               ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Review submitted.')),
+                SnackBar(
+                  content: Text(widget.review == null
+                      ? 'Review added. You can see it in Reviews.'
+                      : 'Your review has been updated.'),
+                ),
               );
               Navigator.maybePop(context, true);
             } catch (error) {
@@ -222,8 +270,8 @@ class _AddReviewScreenState extends State<AddReviewScreen> {
               borderRadius: BorderRadius.circular(12),
             ),
           ),
-          child: const Text(
-            'Submit Review',
+          child: Text(
+            widget.review == null ? 'Submit Review' : 'Save Changes',
             style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800),
           ),
         ),

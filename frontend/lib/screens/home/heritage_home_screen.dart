@@ -12,6 +12,7 @@ import '../community/community_feed_screen.dart';
 import '../tours/create_tour_screen.dart';
 import '../tours/tour_plan_generator_screen.dart';
 import '../tours/tour_details_screen.dart';
+import '../nearby_places.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -193,8 +194,9 @@ class _HeritageHomeScreenState extends State<HeritageHomeScreen> {
     if (callback != null) {
       callback();
     } else {
-      // Browse the displayed region; this does not use GPS.
-      _openExplore(keyword: 'Polonnaruwa');
+      Navigator.of(context).push<void>(
+        MaterialPageRoute<void>(builder: (_) => const NearbyPlacesScreen()),
+      );
     }
   }
 
