@@ -328,8 +328,8 @@ class _TourPlanGeneratorScreenState extends State<TourPlanGeneratorScreen> {
             textInputAction: TextInputAction.newline,
             decoration: InputDecoration(
               hintText:
-                  'I have Rs. 10,000. I want a cold place. '
-                  'I am starting from Galle.',
+                  'I want a hot weather tour for 3 days. '
+                  'I am starting from Colombo.',
               filled: true,
               fillColor: const Color(0xFFFFFBF7),
               border: _inputBorder(),
@@ -345,8 +345,14 @@ class _TourPlanGeneratorScreenState extends State<TourPlanGeneratorScreen> {
             runSpacing: 8,
             children: [
               _exampleChip(
-                'Cold',
-                'I have Rs. 10,000. I want to visit a cold weather place. '
+                'Hot 3 days',
+                'I want a hot weather tour for 3 days. '
+                    "I'm starting from Colombo.",
+              ),
+              _exampleChip(
+                'Cold 2 days',
+                'I have Rs. 10,000. I want to visit a cold weather place '
+                    'for 2 days. '
                     "I'm starting from Galle.",
               ),
               _exampleChip(

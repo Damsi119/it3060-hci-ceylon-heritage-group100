@@ -27,8 +27,10 @@ import java.util.stream.Collectors;
 @Transactional(readOnly = true)
 public class TourPlanServiceImpl implements TourPlanService {
 
-    private static final int DEFAULT_BUDGET = 15_000;
-    private static final int MAX_PLACES = 4;
+    private static final int DEFAULT_DAILY_BUDGET = 12_000;
+    private static final int DEFAULT_DURATION_DAYS = 2;
+    private static final int MAX_SUGGESTED_PLACES = 6;
+    private static final int MAX_DURATION_DAYS = 5;
 
     private static final Pattern MONEY_PATTERN = Pattern.compile(
             "(?:rs\\.?|lkr|rupees?|රු)\\s*([0-9][0-9,]*(?:\\.\\d+)?)"
@@ -43,6 +45,24 @@ public class TourPlanServiceImpl implements TourPlanService {
     private static final Pattern FROM_PATTERN = Pattern.compile(
             "\\b(?:starting\\s+from|start\\s+from|leaving\\s+from|"
                     + "departing\\s+from|from)\\s+([a-zA-Z ]{2,35})",
+            Pattern.CASE_INSENSITIVE
+    );
+
+    private static final Pattern ROUTE_PATTERN = Pattern.compile(
+            "\\b([a-zA-Z ]{2,35})\\s+(?:to|towards)\\s+([a-zA-Z ]{2,35})",
+            Pattern.CASE_INSENSITIVE
+    );
+
+    private static final Pattern DESTINATION_PATTERN = Pattern.compile(
+            "\\b(?:visit|visiting|go(?:ing)?\\s+to|travel(?:ing|ling)?\\s+to|"
+                    + "to|around|near|in)\\s+([a-zA-Z ]{2,35})",
+            Pattern.CASE_INSENSITIVE
+    );
+
+    private static final Pattern DURATION_PATTERN = Pattern.compile(
+            "\\b([1-5])\\s*(?:days?|dawas|davas|d)\\b|"
+                    + "\\b(one|two|three|four|five)\\s*"
+                    + "(?:days?|dawas|davas)\\b",
             Pattern.CASE_INSENSITIVE
     );
 
@@ -69,12 +89,29 @@ public class TourPlanServiceImpl implements TourPlanService {
             "Kurunegala"
     );
 
+    private static final Map<String, List<String>> CITY_ALIASES = Map.of(
+            "Anuradhapura", List.of("anuradha pura", "anuradhapura")
+    );
+
     private static final List<PreferenceProfile> PREFERENCES = List.of(
+            new PreferenceProfile(
+                    "WARM",
+                    "Hot weather",
+                    List.of("hot", "warm", "sunny", "dry", "heat",
+                            "summer", "hot weather", "hot whether"),
+                    List.of("WARM", "DRY"),
+                    List.of("HISTORICAL", "ANCIENT", "CULTURE", "SCENIC",
+                            "FORT"),
+                    List.of("Sigiriya", "Polonnaruwa", "Anuradhapura",
+                            "Jaffna", "Galle"),
+                    "Sigiriya"
+            ),
             new PreferenceProfile(
                     "COLD",
                     "Cold weather",
                     List.of("cold", "cool", "chill", "mist", "misty",
-                            "hill", "mountain", "tea", "nuwara", "ella"),
+                            "hill", "mountain", "tea", "nuwara", "ella",
+                            "cold weather", "cool weather"),
                     List.of("COLD", "HILL_COUNTRY"),
                     List.of("COLD", "NATURE", "HILL_COUNTRY"),
                     List.of("Nuwara Eliya", "Ella", "Haputale", "Kandy"),
@@ -95,9 +132,10 @@ public class TourPlanServiceImpl implements TourPlanService {
                     "NATURE",
                     "Nature and scenery",
                     List.of("nature", "hike", "hiking", "waterfall",
-                            "forest", "lake", "view", "scenery", "green"),
+                            "forest", "lake", "view", "scenery", "green",
+                            "adventure", "climb", "trek", "trekking"),
                     List.of("ANY", "COLD", "HILL_COUNTRY"),
-                    List.of("NATURE", "HIKING", "SCENIC"),
+                    List.of("NATURE", "HIKING", "SCENIC", "ANCIENT"),
                     List.of("Ella", "Sigiriya", "Kandy", "Nuwara Eliya",
                             "Polonnaruwa"),
                     "Ella"
@@ -139,11 +177,21 @@ public class TourPlanServiceImpl implements TourPlanService {
         String normalizedPrompt = normalize(prompt);
 
         Integer detectedBudget = extractBudget(prompt);
-        int budget = detectedBudget == null ? DEFAULT_BUDGET : detectedBudget;
+        Integer detectedDuration = extractDurationDays(prompt);
+        int durationDays = detectedDuration == null
+                ? durationDays(detectedBudget)
+                : detectedDuration;
+        int budget = detectedBudget == null
+                ? estimateBudget(durationDays)
+                : detectedBudget;
 
-        PreferenceProfile preference = detectPreference(normalizedPrompt);
+        PreferenceMatch preferenceMatch = detectPreference(normalizedPrompt);
         String startingLocation = detectStartingLocation(prompt)
                 .orElse("Your location");
+        Optional<String> requestedDestination = detectRequestedDestination(
+                prompt,
+                startingLocation
+        );
 
         List<HistoricalPlace> allPlaces = historicalPlaceRepository
                 .findByActiveTrueOrderByNameAsc();
@@ -154,16 +202,27 @@ public class TourPlanServiceImpl implements TourPlanService {
             usedInactiveFallback = !allPlaces.isEmpty();
         }
 
-        List<ScoredPlace> scoredPlaces = scorePlaces(allPlaces, preference);
+        List<ScoredPlace> scoredPlaces = scorePlaces(
+                allPlaces,
+                preferenceMatch,
+                normalizedPrompt,
+                requestedDestination
+        );
         Optional<String> matchedDestination =
-                chooseDestination(scoredPlaces, preference);
+                chooseDestination(
+                        scoredPlaces,
+                        preferenceMatch.primary(),
+                        requestedDestination
+                );
 
         String destination = matchedDestination
-                .orElse(preference.defaultDestination());
+                .orElse(preferenceMatch.primary().defaultDestination());
 
         List<ScoredPlace> selectedPlaces = selectPlaces(
                 scoredPlaces,
-                destination
+                destination,
+                maxPlacesForDuration(durationDays),
+                requestedDestination.isPresent()
         );
 
         boolean exactPlaceMatch = selectedPlaces.stream()
@@ -172,21 +231,24 @@ public class TourPlanServiceImpl implements TourPlanService {
 
         List<String> notes = buildNotes(
                 detectedBudget,
+                detectedDuration,
                 startingLocation,
                 exactPlaceMatch,
                 usedInactiveFallback,
-                allPlaces.isEmpty()
+                allPlaces.isEmpty(),
+                preferenceMatch.score(),
+                requestedDestination.isPresent()
         );
 
         List<TourPlanResponse.ExpenseItem> expenses =
-                buildExpenses(budget, durationDays(budget));
+                buildExpenses(budget, durationDays);
 
         int totalEstimatedCost = expenses.stream()
                 .mapToInt(TourPlanResponse.ExpenseItem::estimatedCost)
                 .sum();
 
         List<TourPlanResponse.ItineraryDay> itinerary = buildItinerary(
-                durationDays(budget),
+                durationDays,
                 startingLocation,
                 destination,
                 selectedPlaces
@@ -200,18 +262,21 @@ public class TourPlanServiceImpl implements TourPlanService {
         return new TourPlanResponse(
                 "Recommended Tour - " + destination,
                 destination,
-                preference.label(),
+                preferenceLabel(preferenceMatch),
                 startingLocation,
-                durationDays(budget),
+                durationDays,
                 budget,
                 totalEstimatedCost,
                 mapsUrl(destination + " Sri Lanka"),
                 confidenceLabel(
                         detectedBudget != null,
+                        detectedDuration != null,
                         !"Your location".equals(startingLocation),
-                        exactPlaceMatch
+                        exactPlaceMatch,
+                        requestedDestination.isPresent(),
+                        preferenceMatch.score()
                 ),
-                detectedKeywords(preference, normalizedPrompt),
+                preferenceMatch.detectedKeywords(),
                 notes,
                 expenses,
                 itinerary,
@@ -251,15 +316,104 @@ public class TourPlanServiceImpl implements TourPlanService {
         return (int) Math.round(Double.parseDouble(cleanAmount));
     }
 
-    private PreferenceProfile detectPreference(String normalizedPrompt) {
-        return PREFERENCES.stream()
-                .filter(preference -> preference.keywords().stream()
-                        .anyMatch(normalizedPrompt::contains))
-                .findFirst()
-                .orElse(PREFERENCES.stream()
-                        .filter(item -> "HISTORICAL".equals(item.code()))
-                        .findFirst()
-                        .orElseThrow());
+    private Integer extractDurationDays(String prompt) {
+        Matcher durationMatcher = DURATION_PATTERN.matcher(normalize(prompt));
+
+        if (!durationMatcher.find()) {
+            return null;
+        }
+
+        String number = durationMatcher.group(1);
+
+        if (number != null) {
+            return clampDuration(Integer.parseInt(number));
+        }
+
+        return switch (durationMatcher.group(2).toLowerCase(Locale.ROOT)) {
+            case "one" -> 1;
+            case "two" -> 2;
+            case "three" -> 3;
+            case "four" -> 4;
+            case "five" -> 5;
+            default -> null;
+        };
+    }
+
+    private PreferenceMatch detectPreference(String normalizedPrompt) {
+        List<ScoredPreference> scoredPreferences = PREFERENCES.stream()
+                .map(preference -> new ScoredPreference(
+                        preference,
+                        preferenceScore(preference, normalizedPrompt),
+                        matchedKeywords(preference, normalizedPrompt)
+                ))
+                .filter(preference -> preference.score() > 0)
+                .sorted(Comparator
+                        .comparingInt(ScoredPreference::score)
+                        .reversed()
+                        .thenComparing(preference ->
+                                preference.profile().label()))
+                .toList();
+
+        if (scoredPreferences.isEmpty()) {
+            PreferenceProfile fallback = PREFERENCES.stream()
+                    .filter(item -> "HISTORICAL".equals(item.code()))
+                    .findFirst()
+                    .orElseThrow();
+
+            return new PreferenceMatch(
+                    fallback,
+                    List.of(fallback),
+                    List.of(fallback.code().toLowerCase(Locale.ROOT)),
+                    0
+            );
+        }
+
+        List<PreferenceProfile> profiles = scoredPreferences.stream()
+                .map(ScoredPreference::profile)
+                .limit(3)
+                .toList();
+
+        List<String> keywords = scoredPreferences.stream()
+                .flatMap(preference -> preference.detectedKeywords().stream())
+                .distinct()
+                .toList();
+
+        int totalScore = scoredPreferences.stream()
+                .mapToInt(ScoredPreference::score)
+                .sum();
+
+        return new PreferenceMatch(
+                scoredPreferences.get(0).profile(),
+                profiles,
+                keywords,
+                totalScore
+        );
+    }
+
+    private int preferenceScore(
+            PreferenceProfile preference,
+            String normalizedPrompt
+    ) {
+        int score = 0;
+
+        for (String keyword : preference.keywords()) {
+            if (termMatches(normalizedPrompt, keyword)) {
+                score += keyword.contains(" ") ? 4 : 2;
+            }
+        }
+
+        return score;
+    }
+
+    private List<String> matchedKeywords(
+            PreferenceProfile preference,
+            String normalizedPrompt
+    ) {
+        return preference.keywords()
+                .stream()
+                .filter(keyword -> termMatches(normalizedPrompt, keyword))
+                .distinct()
+                .toList();
     }
 
     private Optional<String> detectStartingLocation(String prompt) {
@@ -274,25 +428,73 @@ public class TourPlanServiceImpl implements TourPlanService {
             }
         }
 
-        return findKnownCity(prompt);
+        Matcher routeMatcher = ROUTE_PATTERN.matcher(prompt);
+
+        if (routeMatcher.find()) {
+            return findKnownCity(routeMatcher.group(1));
+        }
+
+        return Optional.empty();
+    }
+
+    private Optional<String> detectRequestedDestination(
+            String prompt,
+            String startingLocation
+    ) {
+        Matcher routeMatcher = ROUTE_PATTERN.matcher(prompt);
+
+        if (routeMatcher.find()) {
+            Optional<String> routeDestination = findKnownCity(
+                    routeMatcher.group(2)
+            );
+
+            if (routeDestination.isPresent()) {
+                return routeDestination;
+            }
+        }
+
+        Matcher destinationMatcher = DESTINATION_PATTERN.matcher(prompt);
+
+        while (destinationMatcher.find()) {
+            Optional<String> city = findKnownCity(destinationMatcher.group(1));
+
+            if (city.isPresent()
+                    && !equalsIgnoreCase(city.get(), startingLocation)) {
+                return city;
+            }
+        }
+
+        List<String> mentionedCities = KNOWN_CITIES.stream()
+                .filter(city -> cityMatches(prompt, city))
+                .filter(city -> !equalsIgnoreCase(city, startingLocation))
+                .toList();
+
+        return mentionedCities.size() == 1
+                ? Optional.of(mentionedCities.get(0))
+                : Optional.empty();
     }
 
     private Optional<String> findKnownCity(String text) {
-        String normalizedText = normalize(text);
-
         return KNOWN_CITIES.stream()
-                .filter(city -> normalizedText.contains(normalize(city)))
+                .filter(city -> cityMatches(text, city))
                 .findFirst();
     }
 
     private List<ScoredPlace> scorePlaces(
             List<HistoricalPlace> places,
-            PreferenceProfile preference
+            PreferenceMatch preferenceMatch,
+            String normalizedPrompt,
+            Optional<String> requestedDestination
     ) {
         return places.stream()
                 .map(place -> new ScoredPlace(
                         place,
-                        scorePlace(place, preference)
+                        scorePlace(
+                                place,
+                                preferenceMatch,
+                                normalizedPrompt,
+                                requestedDestination
+                        )
                 ))
                 .sorted(Comparator
                         .comparingInt(ScoredPlace::score)
@@ -307,30 +509,56 @@ public class TourPlanServiceImpl implements TourPlanService {
 
     private int scorePlace(
             HistoricalPlace place,
-            PreferenceProfile preference
+            PreferenceMatch preferenceMatch,
+            String normalizedPrompt,
+            Optional<String> requestedDestination
     ) {
         Set<String> metadata = placeMetadata(place);
+        String searchableText = searchablePlaceText(place);
         int score = 0;
 
-        if (metadata.contains(preference.code())) {
-            score += 6;
-        }
+        for (PreferenceProfile preference : preferenceMatch.profiles()) {
+            if (metadata.contains(preference.code())) {
+                score += 8;
+            }
 
-        for (String climateType : preference.climateTypes()) {
-            if (metadata.contains(climateType)) {
-                score += 3;
+            for (String climateType : preference.climateTypes()) {
+                if ("ANY".equals(climateType)) {
+                    score += 1;
+                } else if (metadata.contains(climateType)) {
+                    score += 5;
+                }
+            }
+
+            for (String tag : preference.tags()) {
+                if (metadata.contains(tag)) {
+                    score += 4;
+                }
+            }
+
+            for (String cityHint : preference.cityHints()) {
+                if (equalsIgnoreCase(place.getCity(), cityHint)) {
+                    score += 5;
+                }
             }
         }
 
-        for (String tag : preference.tags()) {
-            if (metadata.contains(tag)) {
-                score += 4;
-            }
+        if (requestedDestination.isPresent()
+                && equalsIgnoreCase(place.getCity(), requestedDestination.get())) {
+            score += 14;
         }
 
-        for (String cityHint : preference.cityHints()) {
-            if (equalsIgnoreCase(place.getCity(), cityHint)) {
-                score += 5;
+        if (termMatches(normalizedPrompt, safeText(place.getCity()))) {
+            score += 8;
+        }
+
+        if (termMatches(normalizedPrompt, safeText(place.getName()))) {
+            score += 10;
+        }
+
+        for (String keyword : preferenceMatch.detectedKeywords()) {
+            if (termMatches(searchableText, keyword)) {
+                score += 2;
             }
         }
 
@@ -343,8 +571,13 @@ public class TourPlanServiceImpl implements TourPlanService {
 
     private Optional<String> chooseDestination(
             List<ScoredPlace> scoredPlaces,
-            PreferenceProfile preference
+            PreferenceProfile preference,
+            Optional<String> requestedDestination
     ) {
+        if (requestedDestination.isPresent()) {
+            return requestedDestination;
+        }
+
         Map<String, Integer> scoreByCity = new LinkedHashMap<>();
 
         for (ScoredPlace scoredPlace : scoredPlaces) {
@@ -385,23 +618,73 @@ public class TourPlanServiceImpl implements TourPlanService {
 
     private List<ScoredPlace> selectPlaces(
             List<ScoredPlace> scoredPlaces,
-            String destination
+            String destination,
+            int maxPlaces,
+            boolean strictDestinationOnly
     ) {
-        List<ScoredPlace> destinationPlaces = scoredPlaces.stream()
+        List<ScoredPlace> selectedPlaces = new ArrayList<>();
+        Set<Long> selectedIds = new LinkedHashSet<>();
+
+        scoredPlaces.stream()
                 .filter(place -> equalsIgnoreCase(
                         place.place().getCity(),
                         destination
                 ))
-                .limit(MAX_PLACES)
-                .toList();
+                .limit(maxPlaces)
+                .forEach(place -> addSelectedPlace(
+                        selectedPlaces,
+                        selectedIds,
+                        place
+                ));
 
-        if (!destinationPlaces.isEmpty()) {
-            return destinationPlaces;
+        if (strictDestinationOnly) {
+            return selectedPlaces.stream()
+                    .limit(maxPlaces)
+                    .toList();
         }
 
-        return scoredPlaces.stream()
-                .limit(MAX_PLACES)
+        if (selectedPlaces.size() < maxPlaces) {
+            scoredPlaces.stream()
+                    .filter(place -> place.score() > 0)
+                    .limit(maxPlaces * 2L)
+                    .forEach(place -> addSelectedPlace(
+                            selectedPlaces,
+                            selectedIds,
+                            place
+                    ));
+        }
+
+        if (selectedPlaces.isEmpty()) {
+            scoredPlaces.stream()
+                    .limit(maxPlaces)
+                    .forEach(place -> addSelectedPlace(
+                            selectedPlaces,
+                            selectedIds,
+                            place
+                    ));
+        }
+
+        return selectedPlaces.stream()
+                .limit(maxPlaces)
                 .toList();
+    }
+
+    private void addSelectedPlace(
+            List<ScoredPlace> selectedPlaces,
+            Set<Long> selectedIds,
+            ScoredPlace place
+    ) {
+        Long id = place.place().getId();
+
+        if (id != null && !selectedIds.add(id)) {
+            return;
+        }
+
+        if (id == null && selectedPlaces.contains(place)) {
+            return;
+        }
+
+        selectedPlaces.add(place);
     }
 
     private List<TourPlanResponse.ExpenseItem> buildExpenses(
@@ -443,7 +726,11 @@ public class TourPlanServiceImpl implements TourPlanService {
         return items;
     }
 
-    private int durationDays(int budget) {
+    private int durationDays(Integer budget) {
+        if (budget == null) {
+            return DEFAULT_DURATION_DAYS;
+        }
+
         if (budget < 8_000) {
             return 1;
         }
@@ -457,6 +744,21 @@ public class TourPlanServiceImpl implements TourPlanService {
         }
 
         return 4;
+    }
+
+    private int estimateBudget(int durationDays) {
+        return DEFAULT_DAILY_BUDGET * clampDuration(durationDays);
+    }
+
+    private int maxPlacesForDuration(int durationDays) {
+        return Math.min(
+                MAX_SUGGESTED_PLACES,
+                Math.max(3, clampDuration(durationDays) * 2)
+        );
+    }
+
+    private int clampDuration(int durationDays) {
+        return Math.max(1, Math.min(MAX_DURATION_DAYS, durationDays));
     }
 
     private int roundToNearestHundred(double value) {
@@ -474,93 +776,75 @@ public class TourPlanServiceImpl implements TourPlanService {
                 .map(scored -> scored.place().getName())
                 .filter(name -> name != null && !name.isBlank())
                 .toList();
+        List<List<String>> placesByDay = splitPlacesByDay(
+                placeNames,
+                durationDays
+        );
+        String returnLocation = "Your location".equals(start)
+                ? "your starting point"
+                : start;
 
-        String firstStop = placeNames.isEmpty()
-                ? "the main attraction area"
-                : placeNames.get(0);
+        for (int day = 1; day <= durationDays; day++) {
+            String dayPlaces = joinPlaces(placesByDay.get(day - 1));
+            List<String> activities = new ArrayList<>();
 
-        days.add(new TourPlanResponse.ItineraryDay(
-                1,
-                List.of(
-                        "Morning: Travel from " + start + " to "
-                                + destination + ".",
-                        "Afternoon: Visit " + firstStop + ".",
-                        "Evening: Explore nearby viewpoints, markets or "
-                                + "local food spots."
-                )
-        ));
+            if (day == 1) {
+                activities.add("Morning: Travel from " + start + " to "
+                        + destination + ".");
+                activities.add("Afternoon: Visit " + dayPlaces + ".");
+                activities.add("Evening: Explore nearby viewpoints, markets "
+                        + "or local food spots.");
+            } else if (day == durationDays) {
+                activities.add("Morning: Visit " + dayPlaces + ".");
+                activities.add("Afternoon: Keep time for lunch, photos and "
+                        + "the return journey.");
+                activities.add("Evening: Travel back to " + returnLocation
+                        + ".");
+            } else {
+                activities.add("Morning: Visit " + dayPlaces + ".");
+                activities.add("Afternoon: Add a relaxed stop for photos, "
+                        + "local food or a nearby cultural place.");
+                activities.add("Evening: Rest near " + destination + ".");
+            }
 
-        if (durationDays == 1) {
-            return days;
-        }
-
-        if (durationDays == 2) {
-            days.add(new TourPlanResponse.ItineraryDay(
-                    2,
-                    List.of(
-                            "Morning: Visit " + joinPlaces(placeNames, 1, 3)
-                                    + ".",
-                            "Afternoon: Keep time for lunch and the return "
-                                    + "journey.",
-                            "Evening: Travel back to " + start + "."
-                    )
-            ));
-            return days;
-        }
-
-        days.add(new TourPlanResponse.ItineraryDay(
-                2,
-                List.of(
-                        "Morning: Visit " + joinPlaces(placeNames, 1, 3)
-                                + ".",
-                        "Afternoon: Add a relaxed stop for photos and local "
-                                + "food.",
-                        "Evening: Rest near " + destination + "."
-                )
-        ));
-
-        days.add(new TourPlanResponse.ItineraryDay(
-                3,
-                List.of(
-                        "Morning: Visit " + joinPlaces(placeNames, 3, 4)
-                                + " or choose a nearby cultural stop.",
-                        "Afternoon: Buy souvenirs and start the return "
-                                + "journey.",
-                        "Evening: Travel back to " + start + "."
-                )
-        ));
-
-        if (durationDays == 4) {
-            days.add(new TourPlanResponse.ItineraryDay(
-                    4,
-                    List.of(
-                            "Morning: Use this as a flexible rest or backup "
-                                    + "travel day.",
-                            "Afternoon: Visit one extra nearby attraction if "
-                                    + "budget and time allow.",
-                            "Evening: Complete the journey safely."
-                    )
-            ));
+            days.add(new TourPlanResponse.ItineraryDay(day, activities));
         }
 
         return days;
     }
 
-    private String joinPlaces(
+    private List<List<String>> splitPlacesByDay(
             List<String> placeNames,
-            int startInclusive,
-            int endExclusive
+            int durationDays
     ) {
-        if (placeNames.size() <= startInclusive) {
+        List<List<String>> placesByDay = new ArrayList<>();
+        int index = 0;
+
+        for (int day = 1; day <= durationDays; day++) {
+            int remainingPlaces = placeNames.size() - index;
+            int remainingDays = durationDays - day + 1;
+            int count = remainingPlaces <= 0
+                    ? 0
+                    : Math.min(
+                            2,
+                            Math.max(1, (int) Math.ceil(
+                                    remainingPlaces / (double) remainingDays
+                            ))
+                    );
+
+            placesByDay.add(placeNames.subList(index, index + count));
+            index += count;
+        }
+
+        return placesByDay;
+    }
+
+    private String joinPlaces(List<String> placeNames) {
+        if (placeNames.isEmpty()) {
             return "recommended nearby attractions";
         }
 
-        return placeNames.subList(
-                        startInclusive,
-                        Math.min(endExclusive, placeNames.size())
-                )
-                .stream()
-                .collect(Collectors.joining(" and "));
+        return placeNames.stream().collect(Collectors.joining(" and "));
     }
 
     private TourPlanResponse.PlaceSuggestion toPlaceSuggestion(
@@ -583,10 +867,13 @@ public class TourPlanServiceImpl implements TourPlanService {
 
     private List<String> buildNotes(
             Integer detectedBudget,
+            Integer detectedDuration,
             String startingLocation,
             boolean exactPlaceMatch,
             boolean usedInactiveFallback,
-            boolean hasNoPlaces
+            boolean hasNoPlaces,
+            int preferenceScore,
+            boolean requestedDestinationFound
     ) {
         List<String> notes = new ArrayList<>();
 
@@ -596,8 +883,23 @@ public class TourPlanServiceImpl implements TourPlanService {
                 + "not live weather readings.");
 
         if (detectedBudget == null) {
-            notes.add("No clear budget was found, so Rs. "
-                    + DEFAULT_BUDGET + " was used as a sample budget.");
+            if (detectedDuration == null) {
+                notes.add("No clear budget was found, so a sample daily "
+                        + "budget was used.");
+            } else {
+                notes.add("No clear budget was found, so a sample budget was "
+                        + "estimated from the requested duration.");
+            }
+        }
+
+        if (detectedDuration == null) {
+            if (detectedBudget == null) {
+                notes.add("No exact duration was found, so a 2-day sample "
+                        + "plan was used.");
+            } else {
+                notes.add("No exact duration was found, so the planner "
+                        + "estimated the number of days from the budget.");
+            }
         }
 
         if ("Your location".equals(startingLocation)) {
@@ -608,6 +910,13 @@ public class TourPlanServiceImpl implements TourPlanService {
         if (hasNoPlaces) {
             notes.add("No historical places are available in the "
                     + "database yet.");
+        } else if (requestedDestinationFound && !exactPlaceMatch) {
+            notes.add("Only the requested destination city is used for place "
+                    + "suggestions. Add places for that city to improve the "
+                    + "plan.");
+        } else if (preferenceScore == 0) {
+            notes.add("No strong trip preference was clear, so the planner "
+                    + "used heritage-focused recommendations.");
         } else if (usedInactiveFallback) {
             notes.add("No places were marked active, so the planner used the "
                     + "available database places. Set active=true for final "
@@ -622,34 +931,51 @@ public class TourPlanServiceImpl implements TourPlanService {
 
     private String confidenceLabel(
             boolean budgetFound,
+            boolean durationFound,
             boolean startFound,
-            boolean exactPlaceMatch
+            boolean exactPlaceMatch,
+            boolean destinationFound,
+            int preferenceScore
     ) {
-        if (budgetFound && startFound && exactPlaceMatch) {
-            return "High";
+        int confidence = 62;
+
+        if (preferenceScore > 0) {
+            confidence += Math.min(18, preferenceScore * 2);
         }
 
-        if ((budgetFound || startFound) && exactPlaceMatch) {
-            return "Medium";
+        if (destinationFound) {
+            confidence += 8;
         }
 
-        return "Basic";
+        if (durationFound) {
+            confidence += 7;
+        }
+
+        if (budgetFound) {
+            confidence += 5;
+        }
+
+        if (startFound) {
+            confidence += 5;
+        }
+
+        if (exactPlaceMatch) {
+            confidence += 8;
+        } else {
+            confidence = Math.min(confidence, 78);
+        }
+
+        confidence = Math.max(60, Math.min(95, confidence));
+        return confidence + "% Match";
     }
 
-    private List<String> detectedKeywords(
-            PreferenceProfile preference,
-            String normalizedPrompt
-    ) {
-        List<String> keywords = preference.keywords()
+    private String preferenceLabel(PreferenceMatch preferenceMatch) {
+        return preferenceMatch.profiles()
                 .stream()
-                .filter(normalizedPrompt::contains)
-                .toList();
-
-        if (!keywords.isEmpty()) {
-            return keywords;
-        }
-
-        return List.of(preference.code().toLowerCase(Locale.ROOT));
+                .map(PreferenceProfile::label)
+                .distinct()
+                .limit(2)
+                .collect(Collectors.joining(" + "));
     }
 
     private Set<String> placeMetadata(HistoricalPlace place) {
@@ -727,6 +1053,38 @@ public class TourPlanServiceImpl implements TourPlanService {
         return false;
     }
 
+    private String searchablePlaceText(HistoricalPlace place) {
+        return normalize(
+                safeText(place.getName()) + " "
+                        + safeText(place.getCity()) + " "
+                        + safeText(place.getCategory()) + " "
+                        + safeText(place.getClimateType()) + " "
+                        + safeText(place.getTravelTags()) + " "
+                        + safeText(place.getDescription())
+        );
+    }
+
+    private boolean termMatches(String text, String term) {
+        String normalizedText = " " + normalize(text) + " ";
+        String normalizedTerm = normalize(term);
+
+        if (normalizedTerm.isBlank()) {
+            return false;
+        }
+
+        return normalizedText.contains(" " + normalizedTerm + " ");
+    }
+
+    private boolean cityMatches(String text, String city) {
+        if (termMatches(text, city)) {
+            return true;
+        }
+
+        return CITY_ALIASES.getOrDefault(city, List.of())
+                .stream()
+                .anyMatch(alias -> termMatches(text, alias));
+    }
+
     private String mapsUrl(String query) {
         String encoded = URLEncoder.encode(query, StandardCharsets.UTF_8);
         return "https://www.google.com/maps/search/?api=1&query=" + encoded;
@@ -760,6 +1118,19 @@ public class TourPlanServiceImpl implements TourPlanService {
             List<String> tags,
             List<String> cityHints,
             String defaultDestination
+    ) {}
+
+    private record PreferenceMatch(
+            PreferenceProfile primary,
+            List<PreferenceProfile> profiles,
+            List<String> detectedKeywords,
+            int score
+    ) {}
+
+    private record ScoredPreference(
+            PreferenceProfile profile,
+            int score,
+            List<String> detectedKeywords
     ) {}
 
     private record ScoredPlace(
