@@ -69,10 +69,7 @@ class _HistoricalPlaceDetailsScreenState
 
     try {
       final response = await ApiClient.instance
-          .get(
-        '/api/places/${widget.placeId}',
-        authenticated: false,
-      )
+          .get('/api/places/${widget.placeId}', authenticated: false)
           .timeout(const Duration(seconds: 20));
 
       if (response is! Map) {
@@ -104,8 +101,7 @@ class _HistoricalPlaceDetailsScreenState
     }
   }
 
-  String _text(String key) =>
-      _place?[key]?.toString().trim() ?? '';
+  String _text(String key) => _place?[key]?.toString().trim() ?? '';
 
   double? get _rating {
     final value = _place?['rating'];
@@ -134,8 +130,7 @@ class _HistoricalPlaceDetailsScreenState
 
     final value = _text('category');
 
-    return labels[value.toUpperCase()] ??
-        value.replaceAll('_', ' ');
+    return labels[value.toUpperCase()] ?? value.replaceAll('_', ' ');
   }
 
   String get _duration {
@@ -154,9 +149,7 @@ class _HistoricalPlaceDetailsScreenState
     final hours = minutes ~/ 60;
     final remainder = minutes % 60;
 
-    return remainder == 0
-        ? '$hours hr'
-        : '$hours hr $remainder min';
+    return remainder == 0 ? '$hours hr' : '$hours hr $remainder min';
   }
 
   String? get _localHero {
@@ -199,17 +192,13 @@ class _HistoricalPlaceDetailsScreenState
     final uri = Uri.tryParse(value);
     if (uri == null) return null;
 
-    final baseUrl = ApiConfig.baseUrl.replaceFirst(
-      RegExp(r'/+$'),
-      '',
-    );
+    final baseUrl = ApiConfig.baseUrl.replaceFirst(RegExp(r'/+$'), '');
 
     final resolved = uri.hasScheme
         ? uri
         : Uri.parse('$baseUrl/').resolveUri(uri);
 
-    if (resolved.scheme != 'http' &&
-        resolved.scheme != 'https') {
+    if (resolved.scheme != 'http' && resolved.scheme != 'https') {
       return null;
     }
 
@@ -276,8 +265,7 @@ class _HistoricalPlaceDetailsScreenState
       return Image.asset(
         source,
         fit: fit,
-        errorBuilder: (context, error, stackTrace) =>
-            _imagePlaceholder(),
+        errorBuilder: (context, error, stackTrace) => _imagePlaceholder(),
       );
     }
 
@@ -290,15 +278,11 @@ class _HistoricalPlaceDetailsScreenState
         return const ColoredBox(
           color: _surface,
           child: Center(
-            child: CircularProgressIndicator(
-              color: _primary,
-              strokeWidth: 2,
-            ),
+            child: CircularProgressIndicator(color: _primary, strokeWidth: 2),
           ),
         );
       },
-      errorBuilder: (context, error, stackTrace) =>
-          _imagePlaceholder(),
+      errorBuilder: (context, error, stackTrace) => _imagePlaceholder(),
     );
   }
 
@@ -329,18 +313,14 @@ class _HistoricalPlaceDetailsScreenState
 
     callback();
 
-    if (!mounted ||
-        ModalRoute.of(context)?.isCurrent != true) {
+    if (!mounted || ModalRoute.of(context)?.isCurrent != true) {
       return;
     }
 
     setState(() => _added = !_added);
   }
 
-  Future<void> _openGallery(
-      List<String> images,
-      int index,
-      ) async {
+  Future<void> _openGallery(List<String> images, int index) async {
     if (images.isEmpty) return;
 
     await showDialog<void>(
@@ -348,8 +328,7 @@ class _HistoricalPlaceDetailsScreenState
       builder: (dialogContext) => _PlaceGalleryDialog(
         images: images,
         initialIndex: index,
-        imageBuilder: (source) =>
-            _image(source, fit: BoxFit.contain),
+        imageBuilder: (source) => _image(source, fit: BoxFit.contain),
       ),
     );
   }
@@ -377,50 +356,40 @@ class _HistoricalPlaceDetailsScreenState
         body: _buildBody(),
 
         // Scaffold reserves space for this button below the body.
-        bottomNavigationBar: _place == null
+        bottomNavigationBar: _place == null || widget.onAddToTour == null
             ? null
             : ColoredBox(
-          color: _background,
-          child: SafeArea(
-            top: false,
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(
-                16, 10, 16, 12,
-              ),
-              child: FilledButton.icon(
-                style: FilledButton.styleFrom(
-                  backgroundColor: _primary,
-                  foregroundColor: Colors.white,
-                  minimumSize: const Size.fromHeight(48),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                ),
-                onPressed: _addToTour,
-                icon: Icon(
-                  _added ? Icons.remove : Icons.add,
-                ),
-                label: Text(
-                  _added
-                      ? 'Remove from Tour'
-                      : 'Add to Tour',
-                  style: const TextStyle(
-                    fontWeight: FontWeight.w600,
+                color: _background,
+                child: SafeArea(
+                  top: false,
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 10, 16, 12),
+                    child: FilledButton.icon(
+                      style: FilledButton.styleFrom(
+                        backgroundColor: _primary,
+                        foregroundColor: Colors.white,
+                        minimumSize: const Size.fromHeight(48),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                      ),
+                      onPressed: _addToTour,
+                      icon: Icon(_added ? Icons.remove : Icons.add),
+                      label: Text(
+                        _added ? 'Remove from Tour' : 'Add to Tour',
+                        style: const TextStyle(fontWeight: FontWeight.w600),
+                      ),
+                    ),
                   ),
                 ),
               ),
-            ),
-          ),
-        ),
       ),
     );
   }
 
   Widget _buildBody() {
     if (_loading && _place == null) {
-      return const Center(
-        child: CircularProgressIndicator(color: _primary),
-      );
+      return const Center(child: CircularProgressIndicator(color: _primary));
     }
 
     if (_place == null) {
@@ -430,11 +399,7 @@ class _HistoricalPlaceDetailsScreenState
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Icon(
-                Icons.cloud_off_outlined,
-                size: 44,
-                color: _muted,
-              ),
+              const Icon(Icons.cloud_off_outlined, size: 44, color: _muted),
               const SizedBox(height: 16),
               const Text(
                 'Could not load this place.',
@@ -442,9 +407,7 @@ class _HistoricalPlaceDetailsScreenState
               ),
               const SizedBox(height: 16),
               FilledButton(
-                style: FilledButton.styleFrom(
-                  backgroundColor: _primary,
-                ),
+                style: FilledButton.styleFrom(backgroundColor: _primary),
                 onPressed: _loadPlace,
                 child: const Text('Retry'),
               ),
@@ -496,9 +459,7 @@ class _HistoricalPlaceDetailsScreenState
                   ),
                 _hero(images),
                 Padding(
-                  padding: const EdgeInsets.fromLTRB(
-                    16, 16, 16, 32,
-                  ),
+                  padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -533,14 +494,11 @@ class _HistoricalPlaceDetailsScreenState
                             ),
                           ],
                         ),
-                      if (rating != null &&
-                          rating > 0 &&
-                          _reviewCount > 0) ...[
+                      if (rating != null && rating > 0 && _reviewCount > 0) ...[
                         const SizedBox(height: 8),
                         Wrap(
                           spacing: 6,
-                          crossAxisAlignment:
-                          WrapCrossAlignment.center,
+                          crossAxisAlignment: WrapCrossAlignment.center,
                           children: [
                             const Icon(
                               Icons.star,
@@ -605,12 +563,17 @@ class _HistoricalPlaceDetailsScreenState
                           Expanded(
                             child: OutlinedButton.icon(
                               onPressed: _openReviews,
-                              icon: const Icon(Icons.reviews_outlined, size: 17),
+                              icon: const Icon(
+                                Icons.reviews_outlined,
+                                size: 17,
+                              ),
                               label: const Text('See Reviews'),
                               style: OutlinedButton.styleFrom(
                                 foregroundColor: _primary,
                                 side: const BorderSide(color: _primary),
-                                padding: const EdgeInsets.symmetric(vertical: 12),
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 12,
+                                ),
                               ),
                             ),
                           ),
@@ -618,12 +581,17 @@ class _HistoricalPlaceDetailsScreenState
                           Expanded(
                             child: FilledButton.icon(
                               onPressed: _openAddReview,
-                              icon: const Icon(Icons.rate_review_outlined, size: 17),
+                              icon: const Icon(
+                                Icons.rate_review_outlined,
+                                size: 17,
+                              ),
                               label: const Text('Add Review'),
                               style: FilledButton.styleFrom(
                                 backgroundColor: _primary,
                                 foregroundColor: Colors.white,
-                                padding: const EdgeInsets.symmetric(vertical: 12),
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 12,
+                                ),
                               ),
                             ),
                           ),
@@ -645,10 +613,8 @@ class _HistoricalPlaceDetailsScreenState
     await Navigator.push<void>(
       context,
       MaterialPageRoute(
-        builder: (_) => ReviewsScreen(
-          placeId: widget.placeId,
-          placeName: _text('name'),
-        ),
+        builder: (_) =>
+            ReviewsScreen(placeId: widget.placeId, placeName: _text('name')),
       ),
     );
   }
@@ -657,10 +623,8 @@ class _HistoricalPlaceDetailsScreenState
     await Navigator.push<bool>(
       context,
       MaterialPageRoute(
-        builder: (_) => AddReviewScreen(
-          placeId: widget.placeId,
-          placeName: _text('name'),
-        ),
+        builder: (_) =>
+            AddReviewScreen(placeId: widget.placeId, placeName: _text('name')),
       ),
     );
   }
@@ -696,10 +660,7 @@ class _HistoricalPlaceDetailsScreenState
             left: 12,
             bottom: 12,
             child: Container(
-              padding: const EdgeInsets.symmetric(
-                horizontal: 10,
-                vertical: 6,
-              ),
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
               decoration: BoxDecoration(
                 color: Colors.black54,
                 borderRadius: BorderRadius.circular(20),
@@ -715,10 +676,7 @@ class _HistoricalPlaceDetailsScreenState
                   const SizedBox(width: 6),
                   Text(
                     '${_currentImage + 1} / ${images.length}',
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 12,
-                    ),
+                    style: const TextStyle(color: Colors.white, fontSize: 12),
                   ),
                 ],
               ),
@@ -734,17 +692,15 @@ class _HistoricalPlaceDetailsScreenState
                     icon: Icons.chevron_left,
                     tooltip: 'Previous image',
                     onPressed: () => _changeImage(
-                      (_currentImage - 1 + images.length) %
-                          images.length,
+                      (_currentImage - 1 + images.length) % images.length,
                     ),
                   ),
                   const SizedBox(width: 4),
                   _arrow(
                     icon: Icons.chevron_right,
                     tooltip: 'Next image',
-                    onPressed: () => _changeImage(
-                      (_currentImage + 1) % images.length,
-                    ),
+                    onPressed: () =>
+                        _changeImage((_currentImage + 1) % images.length),
                   ),
                 ],
               ),
@@ -786,11 +742,7 @@ class _HistoricalPlaceDetailsScreenState
     // Missing values are omitted rather than replaced with defaults.
     final items = <Widget>[
       if (_duration.isNotEmpty)
-        _infoCard(
-          Icons.schedule_outlined,
-          _duration,
-          'Visit duration',
-        ),
+        _infoCard(Icons.schedule_outlined, _duration, 'Visit duration'),
       if (_text('bestTimeToVisit').isNotEmpty)
         _infoCard(
           Icons.wb_sunny_outlined,
@@ -822,26 +774,20 @@ class _HistoricalPlaceDetailsScreenState
     return LayoutBuilder(
       builder: (context, constraints) {
         final columns = constraints.maxWidth >= 560 ? 3 : 2;
-        final width =
-            (constraints.maxWidth - (columns - 1) * 10) / columns;
+        final width = (constraints.maxWidth - (columns - 1) * 10) / columns;
 
         return Wrap(
           spacing: 10,
           runSpacing: 10,
           children: [
-            for (final item in items)
-              SizedBox(width: width, child: item),
+            for (final item in items) SizedBox(width: width, child: item),
           ],
         );
       },
     );
   }
 
-  Widget _infoCard(
-      IconData icon,
-      String value,
-      String label,
-      ) {
+  Widget _infoCard(IconData icon, String value, String label) {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
@@ -868,10 +814,7 @@ class _HistoricalPlaceDetailsScreenState
                 const SizedBox(height: 4),
                 Text(
                   label,
-                  style: const TextStyle(
-                    color: _muted,
-                    fontSize: 12,
-                  ),
+                  style: const TextStyle(color: _muted, fontSize: 12),
                 ),
               ],
             ),
@@ -887,8 +830,7 @@ class _HistoricalPlaceDetailsScreenState
       child: ListView.separated(
         scrollDirection: Axis.horizontal,
         itemCount: images.length,
-        separatorBuilder: (context, index) =>
-        const SizedBox(width: 8),
+        separatorBuilder: (context, index) => const SizedBox(width: 8),
         itemBuilder: (context, index) {
           return GestureDetector(
             onTap: () => _changeImage(index),
@@ -899,9 +841,7 @@ class _HistoricalPlaceDetailsScreenState
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(8),
                 border: Border.all(
-                  color: _currentImage == index
-                      ? _primary
-                      : Colors.transparent,
+                  color: _currentImage == index ? _primary : Colors.transparent,
                   width: 2,
                 ),
               ),
@@ -926,8 +866,7 @@ class _PlaceGalleryDialog extends StatefulWidget {
   final Widget Function(String source) imageBuilder;
 
   @override
-  State<_PlaceGalleryDialog> createState() =>
-      _PlaceGalleryDialogState();
+  State<_PlaceGalleryDialog> createState() => _PlaceGalleryDialogState();
 }
 
 class _PlaceGalleryDialogState extends State<_PlaceGalleryDialog> {
@@ -966,9 +905,7 @@ class _PlaceGalleryDialogState extends State<_PlaceGalleryDialog> {
                   minScale: 1,
                   maxScale: 4,
                   child: Center(
-                    child: widget.imageBuilder(
-                      widget.images[index],
-                    ),
+                    child: widget.imageBuilder(widget.images[index]),
                   ),
                 );
               },
@@ -989,10 +926,7 @@ class _PlaceGalleryDialogState extends State<_PlaceGalleryDialog> {
               child: Center(
                 child: Text(
                   '${_index + 1} / ${widget.images.length}',
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 14,
-                  ),
+                  style: const TextStyle(color: Colors.white, fontSize: 14),
                 ),
               ),
             ),

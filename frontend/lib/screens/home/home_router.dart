@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../models/user_profile.dart';
 import '../admin/admin_home_screen.dart';
+import '../guide/guide_home_screen.dart';
 import '../notifications/notifications_screen.dart';
 import '../profile/profile_screen.dart';
 import 'account_home_screen.dart';
@@ -34,6 +35,8 @@ class HomeRouter extends StatelessWidget {
             );
           },
         );
+      case 'GUIDE':
+        return GuideHomeScreen(user: user);
       default:
         return AccountHomeScreen(user: user);
     }

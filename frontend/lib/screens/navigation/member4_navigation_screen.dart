@@ -372,6 +372,7 @@ class _Member4NavigationScreenState extends State<Member4NavigationScreen> {
     final result = await showDialog<String>(
       context: context,
       builder: (context) => AlertDialog(
+        scrollable: true,
         title: const Text('Rename journey'),
         content: TextFormField(
           initialValue: name,

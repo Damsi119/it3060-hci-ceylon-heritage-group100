@@ -735,6 +735,7 @@ class _HistoricalPlacesScreenState extends State<HistoricalPlacesScreen> {
 
   Widget _placeRow(HistoricalPlace place) {
     final selected = _selected.containsKey(place.id);
+    final canPlanTours = widget.onTours != null;
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 20),
@@ -780,19 +781,20 @@ class _HistoricalPlacesScreenState extends State<HistoricalPlacesScreen> {
                   spacing: 8,
                   runSpacing: 4,
                   children: [
-                    OutlinedButton(
-                      onPressed: () => _togglePlace(place),
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: _primary,
-                        side: const BorderSide(color: _primary),
-                        padding: const EdgeInsets.symmetric(horizontal: 9),
-                        visualDensity: VisualDensity.compact,
+                    if (canPlanTours)
+                      OutlinedButton(
+                        onPressed: () => _togglePlace(place),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: _primary,
+                          side: const BorderSide(color: _primary),
+                          padding: const EdgeInsets.symmetric(horizontal: 9),
+                          visualDensity: VisualDensity.compact,
+                        ),
+                        child: Text(
+                          selected ? '✓ Added' : '+ Add to Tour',
+                          style: const TextStyle(fontSize: 11),
+                        ),
                       ),
-                      child: Text(
-                        selected ? '✓ Added' : '+ Add to Tour',
-                        style: const TextStyle(fontSize: 11),
-                      ),
-                    ),
                     FilledButton(
                       onPressed: () => _openDetails(place),
                       style: FilledButton.styleFrom(
@@ -1054,7 +1056,11 @@ class _HistoricalPlacesScreenState extends State<HistoricalPlacesScreen> {
       case 1:
         break;
       case 2:
-        _openTours();
+        if (widget.onTours != null) {
+          _openTours();
+        } else {
+          _openNotifications();
+        }
         break;
       case 3:
         if (widget.onCommunity != null) {
@@ -1078,18 +1084,28 @@ class _HistoricalPlacesScreenState extends State<HistoricalPlacesScreen> {
         backgroundColor: Colors.white,
         indicatorColor: _surface,
         onDestinationSelected: _navigate,
-        destinations: const [
-          NavigationDestination(icon: Icon(Icons.home_outlined), label: 'Home'),
-          NavigationDestination(icon: Icon(Icons.search), label: 'Explore'),
-          NavigationDestination(
-            icon: Icon(Icons.add_circle_outline),
-            label: 'Tours',
+        destinations: [
+          const NavigationDestination(
+            icon: Icon(Icons.home_outlined),
+            label: 'Home',
+          ),
+          const NavigationDestination(
+            icon: Icon(Icons.search),
+            label: 'Explore',
           ),
           NavigationDestination(
+            icon: Icon(
+              widget.onTours == null
+                  ? Icons.notifications_none_outlined
+                  : Icons.add_circle_outline,
+            ),
+            label: widget.onTours == null ? 'Alerts' : 'Tours',
+          ),
+          const NavigationDestination(
             icon: Icon(Icons.groups_outlined),
             label: 'Community',
           ),
-          NavigationDestination(
+          const NavigationDestination(
             icon: Icon(Icons.person_outline),
             label: 'Profile',
           ),
@@ -1142,7 +1158,7 @@ class _HistoricalPlacesScreenState extends State<HistoricalPlacesScreen> {
                           );
                         }).toList(),
                       ),
-                      if (_selected.isNotEmpty) ...[
+                      if (widget.onTours != null && _selected.isNotEmpty) ...[
                         const SizedBox(height: 12),
                         Container(
                           padding: const EdgeInsets.symmetric(

@@ -615,7 +615,11 @@ class _CommunityFeedScreenState extends State<CommunityFeedScreen> {
                 break;
 
               case 2:
-                _navigate(widget.onTours, 'Tours');
+                if (widget.onTours != null) {
+                  _navigate(widget.onTours, 'Tours');
+                } else {
+                  _navigate(widget.onNotifications, 'Alerts');
+                }
                 break;
 
               case 4:
@@ -623,21 +627,28 @@ class _CommunityFeedScreenState extends State<CommunityFeedScreen> {
                 break;
             }
           },
-          destinations: const [
-            NavigationDestination(
+          destinations: [
+            const NavigationDestination(
               icon: Icon(Icons.home_outlined),
               label: 'Home',
             ),
-            NavigationDestination(icon: Icon(Icons.search), label: 'Explore'),
             NavigationDestination(
-              icon: Icon(Icons.add_circle_outline),
-              label: 'Tours',
+              icon: const Icon(Icons.search),
+              label: 'Explore',
             ),
             NavigationDestination(
+              icon: Icon(
+                widget.onTours == null
+                    ? Icons.notifications_none_outlined
+                    : Icons.add_circle_outline,
+              ),
+              label: widget.onTours == null ? 'Alerts' : 'Tours',
+            ),
+            const NavigationDestination(
               icon: Icon(Icons.groups_outlined),
               label: 'Community',
             ),
-            NavigationDestination(
+            const NavigationDestination(
               icon: Icon(Icons.person_outline),
               label: 'Profile',
             ),

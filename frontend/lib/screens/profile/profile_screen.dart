@@ -112,6 +112,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     final password = await showDialog<String>(
       context: context,
       builder: (dialogContext) => AlertDialog(
+        scrollable: true,
         backgroundColor: _ProfilePalette.surface,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(22)),
         title: const Text('Delete your account?'),

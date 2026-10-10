@@ -8,6 +8,7 @@ import com.ceylonheritage.backend.service.TourService;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
@@ -26,6 +27,7 @@ public class TourController {
     }
 
     @PostMapping
+    @PreAuthorize("hasRole('TOURIST')")
     public ResponseEntity<TourDto> createTour(
             @AuthenticationPrincipal User user,
             @Valid @RequestBody CreateTourRequest request
@@ -63,6 +65,7 @@ public class TourController {
     }
 
     @PutMapping("/{tourId}")
+    @PreAuthorize("hasRole('TOURIST')")
     public ResponseEntity<TourDto> updateTour(
             @AuthenticationPrincipal User user,
             @PathVariable("tourId") Long tourId,

@@ -42,72 +42,86 @@ class _AdminGuideRequestsScreenState extends State<AdminGuideRequestsScreen> {
 
   Future<void> _review(GuideApplication item, String status) async {
     final noteController = TextEditingController();
-    final confirm = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text(
-          status == 'APPROVED'
-              ? 'Approve guide request?'
-              : 'Reject guide request?',
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              item.name,
-              style: const TextStyle(fontWeight: FontWeight.w800),
-            ),
-            const SizedBox(height: 6),
-            Text(
-              item.email,
-              style: const TextStyle(fontSize: 11, color: AppColors.textMuted),
-            ),
-            const SizedBox(height: 14),
-            TextField(
-              controller: noteController,
-              maxLines: 3,
-              decoration: const InputDecoration(
-                labelText: 'Review note (optional)',
+    var confirmed = false;
+    var reviewNote = '';
+
+    try {
+      final confirm = await showDialog<bool>(
+        context: context,
+        builder: (context) => AlertDialog(
+          scrollable: true,
+          title: Text(
+            status == 'APPROVED'
+                ? 'Approve guide request?'
+                : 'Reject guide request?',
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                item.name,
+                style: const TextStyle(fontWeight: FontWeight.w800),
               ),
-            ),
-            if (status == 'APPROVED') ...[
-              const SizedBox(height: 10),
-              const Text(
-                'Approval automatically creates the GUIDE account and emails the temporary password.',
-                style: TextStyle(
-                  fontSize: 10,
-                  height: 1.4,
+              const SizedBox(height: 6),
+              Text(
+                item.email,
+                style: const TextStyle(
+                  fontSize: 11,
                   color: AppColors.textMuted,
                 ),
               ),
+              const SizedBox(height: 14),
+              TextField(
+                controller: noteController,
+                maxLines: 3,
+                decoration: const InputDecoration(
+                  labelText: 'Review note (optional)',
+                ),
+              ),
+              if (status == 'APPROVED') ...[
+                const SizedBox(height: 10),
+                const Text(
+                  'Approval automatically creates the GUIDE account and emails the temporary password.',
+                  style: TextStyle(
+                    fontSize: 10,
+                    height: 1.4,
+                    color: AppColors.textMuted,
+                  ),
+                ),
+              ],
             ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              style: FilledButton.styleFrom(
+                backgroundColor: status == 'APPROVED'
+                    ? AppColors.green
+                    : AppColors.danger,
+              ),
+              onPressed: () => Navigator.pop(context, true),
+              child: Text(status == 'APPROVED' ? 'Approve' : 'Reject'),
+            ),
           ],
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancel'),
-          ),
-          FilledButton(
-            style: FilledButton.styleFrom(
-              backgroundColor: status == 'APPROVED'
-                  ? AppColors.green
-                  : AppColors.danger,
-            ),
-            onPressed: () => Navigator.pop(context, true),
-            child: Text(status == 'APPROVED' ? 'Approve' : 'Reject'),
-          ),
-        ],
-      ),
-    );
+      );
 
-    if (confirm != true) return;
+      confirmed = confirm == true;
+      reviewNote = noteController.text.trim();
+    } finally {
+      noteController.dispose();
+    }
+
+    if (!confirmed) return;
     try {
       await GuideService.instance.review(
         id: item.id,
         status: status,
-        note: noteController.text.trim(),
+        note: reviewNote,
       );
       if (!mounted) return;
       showHeritageMessage(
