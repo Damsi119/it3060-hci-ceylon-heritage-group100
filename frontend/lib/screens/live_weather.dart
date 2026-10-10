@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 
 import '../models/weather_forecast.dart';
 import '../services/tourism_service.dart';
@@ -224,6 +224,12 @@ class _LiveWeatherScreenState extends State<LiveWeatherScreen> {
       ),
       const SizedBox(height: 8),
       for (final day in weather.fiveDay) _DayRow(forecast: day),
+      const SizedBox(height: 8),
+      const Text(
+        'Weather data © Open-Meteo',
+        textAlign: TextAlign.center,
+        style: TextStyle(fontSize: 9, color: Color(0xFF68716D)),
+      ),
     ],
   );
 }
