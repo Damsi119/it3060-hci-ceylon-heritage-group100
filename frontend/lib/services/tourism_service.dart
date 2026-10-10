@@ -433,6 +433,36 @@ out center tags;''';
     }
   }
 
+  Future<PlaceReview> updateReview({
+    required int placeId,
+    required PlaceReview review,
+    required int rating,
+    required String comment,
+  }) async {
+    if (review.id > 0) {
+      await _api.put('/api/tourism/places/$placeId/reviews/${review.id}', body: {
+        'rating': rating,
+        'comment': comment,
+      });
+    }
+    final updated = PlaceReview(
+      id: review.id,
+      authorName: review.authorName,
+      authorLabel: review.authorLabel,
+      rating: rating,
+      comment: comment,
+      createdAt: review.createdAt,
+    );
+    _rememberReview(placeId, updated);
+    return updated;
+  }
+
+  Future<void> deleteReview(int placeId, PlaceReview review) async {
+    if (review.id > 0) {
+      await _api.delete('/api/tourism/places/$placeId/reviews/${review.id}');
+    }
+    _localReviews[placeId]?.removeWhere((item) => item.id == review.id);
+  }
   void _rememberReview(int placeId, PlaceReview review) {
     final reviews = _localReviews.putIfAbsent(placeId, () => []);
     final existingIndex = reviews.indexWhere((item) => item.id == review.id);
