@@ -87,6 +87,13 @@ public class SecurityConfig {
                         )
                         .permitAll()
 
+                        // Weather forecasts are public.
+                        .requestMatchers(
+                                HttpMethod.GET,
+                                "/api/weather"
+                        )
+                        .permitAll()
+
                         // Visitors can view posts, like counts and comments.
                         .requestMatchers(
                                 HttpMethod.GET,
@@ -161,8 +168,12 @@ public class SecurityConfig {
     private UrlBasedCorsConfigurationSource placesCorsConfiguration() {
         CorsConfiguration configuration = new CorsConfiguration();
 
-        configuration.setAllowedOrigins(
-                List.of("http://localhost:3000")
+        // Flutter Web uses a dynamic localhost port during development.
+        configuration.setAllowedOriginPatterns(
+                List.of(
+                        "http://localhost:*",
+                        "http://127.0.0.1:*"
+                )
         );
 
         configuration.setAllowedMethods(
@@ -189,6 +200,11 @@ public class SecurityConfig {
 
         source.registerCorsConfiguration(
                 "/api/places/**",
+                configuration
+        );
+
+        source.registerCorsConfiguration(
+                "/api/weather",
                 configuration
         );
 

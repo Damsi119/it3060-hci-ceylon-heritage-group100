@@ -3,6 +3,9 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../core/constants/api_config.dart';
 import '../../services/api_client.dart';
+import '../add_review.dart';
+import '../reviews.dart';
+import '../../widgets/place_reviews_preview.dart';
 
 class HistoricalPlaceDetailsScreen extends StatefulWidget {
   const HistoricalPlaceDetailsScreen({
@@ -161,6 +164,9 @@ class _HistoricalPlaceDetailsScreenState
     final name = _text('name').toLowerCase();
 
     const assets = {
+      'triton bastion': 'galle_fort_gallery_ramparts.png',
+      'historical mansion': 'galle_fort_gallery_street.png',
+      'old town of galle': 'galle_fort.png',
       'gal vihara': 'gal_vihara.png',
       'rankoth': 'rankoth_vehera.png',
       'lankathilaka': 'lankathilaka_temple.png',
@@ -595,12 +601,73 @@ class _HistoricalPlaceDetailsScreenState
                         _gallery(images),
                       ],
                       const SizedBox(height: 24),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: OutlinedButton.icon(
+                              onPressed: _openReviews,
+                              icon: const Icon(Icons.reviews_outlined, size: 17),
+                              label: const Text('See Reviews'),
+                              style: OutlinedButton.styleFrom(
+                                foregroundColor: _primary,
+                                side: const BorderSide(color: _primary),
+                                padding: const EdgeInsets.symmetric(vertical: 12),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 9),
+                          Expanded(
+                            child: FilledButton.icon(
+                              onPressed: _openAddReview,
+                              icon: const Icon(Icons.rate_review_outlined, size: 17),
+                              label: const Text('Add Review'),
+                              style: FilledButton.styleFrom(
+                                backgroundColor: _primary,
+                                foregroundColor: Colors.white,
+                                padding: const EdgeInsets.symmetric(vertical: 12),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 20),
+                      PlaceReviewsPreview(
+                        placeId: widget.placeId,
+                        placeName: _text('name'),
+                        initialRating: _rating ?? 0,
+                        initialReviewCount: _reviewCount,
+                      ),
+                      const SizedBox(height: 24),
                     ],
                   ),
                 ),
               ],
             ),
           ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _openReviews() async {
+    await Navigator.push<void>(
+      context,
+      MaterialPageRoute(
+        builder: (_) => ReviewsScreen(
+          placeId: widget.placeId,
+          placeName: _text('name'),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _openAddReview() async {
+    await Navigator.push<bool>(
+      context,
+      MaterialPageRoute(
+        builder: (_) => AddReviewScreen(
+          placeId: widget.placeId,
+          placeName: _text('name'),
         ),
       ),
     );

@@ -132,6 +132,9 @@ class HistoricalPlace {
     final value = name.toLowerCase();
 
     const assets = {
+      'triton bastion': 'galle_fort_gallery_ramparts.png',
+      'historical mansion': 'galle_fort_gallery_street.png',
+      'old town of galle': 'galle_fort.png',
       'sigiriya': 'sigiriya.png',
       'tooth': 'temple_of_the_tooth.png',
       'jaffna': 'jaffna_fort.png',

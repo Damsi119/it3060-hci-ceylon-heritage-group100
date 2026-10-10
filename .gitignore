@@ -18,6 +18,7 @@ backend/src/main/resources/application-local.yml
 backend/src/main/resources/application-local.yaml
 
 # Flutter and Dart generated files
+.tmp/
 frontend/.dart_tool/
 frontend/.flutter-plugins
 frontend/.flutter-plugins-dependencies
