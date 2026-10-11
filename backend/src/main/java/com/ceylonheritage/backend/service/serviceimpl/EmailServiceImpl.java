@@ -25,9 +25,9 @@ public class EmailServiceImpl implements EmailService {
 
         message.setFrom(fromEmail);
         message.setTo(email);
-        message.setSubject("HISTORIA - Verify Your Email");
+        message.setSubject("Ceylon Heritage - Verify Your Email");
         message.setText(
-                "Your HISTORIA verification code is: " + code +
+                "Your Ceylon Heritage verification code is: " + code +
                         "\n\nThis code will expire in 5 minutes."
         );
 
@@ -41,9 +41,9 @@ public class EmailServiceImpl implements EmailService {
 
         message.setFrom(fromEmail);
         message.setTo(email);
-        message.setSubject("HISTORIA - Password Reset");
+        message.setSubject("Ceylon Heritage - Password Reset");
         message.setText(
-                "Your HISTORIA password reset code is: " + code +
+                "Your Ceylon Heritage password reset code is: " + code +
                         "\n\nThis code will expire in 5 minutes."
         );
 
@@ -61,12 +61,12 @@ public class EmailServiceImpl implements EmailService {
 
         message.setFrom(fromEmail);
         message.setTo(email);
-        message.setSubject("HISTORIA - Guide Request Update");
+        message.setSubject("Ceylon Heritage - Guide Request Update");
         message.setText(
                 "Hello " + name + ",\n\n" +
                         "Your guide request has been rejected." +
                         formatReason(reason) +
-                        "\n\nThank you,\nHISTORIA Team"
+                        "\n\nThank you,\nCeylon Heritage Team"
         );
 
         mailSender.send(message);
@@ -84,7 +84,7 @@ public class EmailServiceImpl implements EmailService {
 
         message.setFrom(fromEmail);
         message.setTo(email);
-        message.setSubject("HISTORIA - Guide Account Approved");
+        message.setSubject("Ceylon Heritage - Guide Account Approved");
         message.setText(
                 "Hello " + name + ",\n\n" +
                         "Your guide request has been approved. Use these credentials to login:\n\n" +
@@ -92,7 +92,7 @@ public class EmailServiceImpl implements EmailService {
                         "Email: " + email + "\n" +
                         "Temporary password: " + temporaryPassword + "\n\n" +
                         "You must change this temporary password after your first login." +
-                        "\n\nThank you,\nHISTORIA Team"
+                        "\n\nThank you,\nCeylon Heritage Team"
         );
 
         mailSender.send(message);

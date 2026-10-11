@@ -83,14 +83,16 @@ public class TourismService {
     }
 
     @Transactional(readOnly = true)
-    public List<TourismDto.ReviewResponse> getReviews(Long placeId, String sort) {
+    public List<TourismDto.ReviewResponse> getReviews(Long placeId, String sort, String username) {
         requirePlace(placeId);
+        User currentUser = username == null ? null : userRepository.findByUsernameIgnoreCaseAndDeletedFalse(username)
+                .orElse(null);
         var reviews = reviewRepository.findByPlace_IdOrderByCreatedAtDesc(placeId);
         if ("highest-rated".equalsIgnoreCase(sort)) {
             reviews = reviews.stream().sorted(Comparator.comparingInt(PlaceReview::getRating).reversed()
                     .thenComparing(PlaceReview::getCreatedAt, Comparator.reverseOrder())).toList();
         }
-        return reviews.stream().map(this::toReviewResponse).toList();
+        return reviews.stream().map(review -> toReviewResponse(review, currentUser)).toList();
     }
 
     @Transactional(readOnly = true)
@@ -124,7 +126,36 @@ public class TourismService {
         place.setRating(allReviews.stream().mapToInt(PlaceReview::getRating).average().orElse(place.getRating()));
         place.setReviewCount(allReviews.size());
         placeRepository.save(place);
-        return toReviewResponse(review);
+        return toReviewResponse(review, author);
+    }
+
+    @Transactional
+    public TourismDto.ReviewResponse updateReview(
+            Long placeId,
+            Long reviewId,
+            String username,
+            TourismDto.ReviewRequest request) {
+        User user = requireUser(username);
+        PlaceReview review = requireReview(placeId, reviewId);
+        requireReviewOwner(review, user);
+
+        review.setRating(request.rating());
+        review.setComment(request.comment().trim());
+        review = reviewRepository.save(review);
+        refreshPlaceRating(review.getPlace());
+
+        return toReviewResponse(review, user);
+    }
+
+    @Transactional
+    public void deleteReview(Long placeId, Long reviewId, String username) {
+        User user = requireUser(username);
+        PlaceReview review = requireReview(placeId, reviewId);
+        requireReviewOwner(review, user);
+
+        Place place = review.getPlace();
+        reviewRepository.delete(review);
+        refreshPlaceRating(place);
     }
 
     @Transactional(readOnly = true)
@@ -178,6 +209,24 @@ public class TourismService {
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Place was not found"));
     }
 
+    private PlaceReview requireReview(Long placeId, Long reviewId) {
+        return reviewRepository.findByIdAndPlace_Id(reviewId, placeId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Review was not found"));
+    }
+
+    private void requireReviewOwner(PlaceReview review, User user) {
+        if (review.getAuthor() == null || !review.getAuthor().getId().equals(user.getId())) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "You can edit or delete only your own review");
+        }
+    }
+
+    private void refreshPlaceRating(Place place) {
+        List<PlaceReview> allReviews = reviewRepository.findByPlace_Id(place.getId());
+        place.setRating(allReviews.stream().mapToInt(PlaceReview::getRating).average().orElse(0));
+        place.setReviewCount(allReviews.size());
+        placeRepository.save(place);
+    }
+
     private TourismDto.PlaceResponse toPlaceResponse(Place place) {
         return toPlaceResponse(place, null, null);
     }
@@ -203,8 +252,15 @@ public class TourismService {
     }
 
     private TourismDto.ReviewResponse toReviewResponse(PlaceReview review) {
+        return toReviewResponse(review, null);
+    }
+
+    private TourismDto.ReviewResponse toReviewResponse(PlaceReview review, User currentUser) {
+        boolean ownedByCurrentUser = currentUser != null
+                && review.getAuthor() != null
+                && review.getAuthor().getId().equals(currentUser.getId());
         return new TourismDto.ReviewResponse(review.getId(), review.getAuthorName(), review.getAuthorLabel(),
-                review.getRating(), review.getComment(), review.getCreatedAt());
+                review.getRating(), review.getComment(), review.getCreatedAt(), ownedByCurrentUser);
     }
 
     private long countRating(List<PlaceReview> reviews, int rating) {

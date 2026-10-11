@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../../services/api_client.dart';
 import '../../services/auth_service.dart';
@@ -65,6 +66,16 @@ class _SignupScreenState extends State<SignupScreen> {
 
   String? _required(String? value) {
     return value == null || value.trim().isEmpty ? 'Required' : null;
+  }
+
+  String? _phoneValidator(String? value) {
+    if (_required(value) != null) {
+      return 'Required';
+    }
+
+    return RegExp(r'^\d{10}$').hasMatch(value!.trim())
+        ? null
+        : 'Phone number must be 10 digits';
   }
 
   // ================= REGISTER LOGIC =================
@@ -136,6 +147,7 @@ class _SignupScreenState extends State<SignupScreen> {
     required TextEditingController controller,
     IconData? icon,
     TextInputType? keyboardType,
+    List<TextInputFormatter>? inputFormatters,
     String? Function(String?)? validator,
     bool obscureText = false,
     VoidCallback? onVisibilityToggle,
@@ -160,6 +172,7 @@ class _SignupScreenState extends State<SignupScreen> {
         TextFormField(
           controller: controller,
           keyboardType: keyboardType,
+          inputFormatters: inputFormatters,
           obscureText: obscureText,
           textInputAction: textInputAction,
           validator: validator,
@@ -529,7 +542,11 @@ class _SignupScreenState extends State<SignupScreen> {
             controller: _phone,
             icon: Icons.phone_outlined,
             keyboardType: TextInputType.phone,
-            validator: _required,
+            inputFormatters: [
+              FilteringTextInputFormatter.digitsOnly,
+              LengthLimitingTextInputFormatter(10),
+            ],
+            validator: _phoneValidator,
           ),
         ),
 

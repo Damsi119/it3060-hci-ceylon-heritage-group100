@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../../models/guide_application.dart';
 import '../../services/api_client.dart';
@@ -60,6 +61,18 @@ class _GuideRequestScreenState extends State<GuideRequestScreen> {
         : null;
   }
 
+  bool _isTenDigitPhone(String value) {
+    return RegExp(r'^\d{10}$').hasMatch(value.trim());
+  }
+
+  String? _phoneValidator(String? value) {
+    if (_required(value) != null) {
+      return 'This field is required';
+    }
+
+    return _isTenDigitPhone(value!) ? null : 'Phone number must be 10 digits';
+  }
+
   // ================= EXISTING BACKEND LOGIC =================
 
   Future<void> _submit() async {
@@ -109,6 +122,15 @@ class _GuideRequestScreenState extends State<GuideRequestScreen> {
       return;
     }
 
+    if (!_isTenDigitPhone(phone)) {
+      showHeritageMessage(
+        context,
+        'Phone number must be 10 digits',
+        error: true,
+      );
+      return;
+    }
+
     setState(() {
       _checkingStatus = true;
       _statusApplication = null;
@@ -142,6 +164,7 @@ class _GuideRequestScreenState extends State<GuideRequestScreen> {
     required TextEditingController controller,
     required String? Function(String?) validator,
     TextInputType? keyboardType,
+    List<TextInputFormatter>? inputFormatters,
     TextInputAction textInputAction = TextInputAction.next,
     int maxLines = 1,
   }) {
@@ -161,6 +184,7 @@ class _GuideRequestScreenState extends State<GuideRequestScreen> {
           controller: controller,
           validator: validator,
           keyboardType: keyboardType,
+          inputFormatters: inputFormatters,
           textInputAction: textInputAction,
           maxLines: maxLines,
           style: const TextStyle(
@@ -447,8 +471,12 @@ class _GuideRequestScreenState extends State<GuideRequestScreen> {
             label: 'Phone number',
             hint: '07XXXXXXXX',
             controller: _phone,
-            validator: _required,
+            validator: _phoneValidator,
             keyboardType: TextInputType.phone,
+            inputFormatters: [
+              FilteringTextInputFormatter.digitsOnly,
+              LengthLimitingTextInputFormatter(10),
+            ],
           ),
         ),
         const SizedBox(height: 16),

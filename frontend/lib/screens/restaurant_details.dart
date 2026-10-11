@@ -21,7 +21,7 @@ class RestaurantDetailsScreen extends StatefulWidget {
 }
 
 class _RestaurantDetailsScreenState extends State<RestaurantDetailsScreen> {
-  late TourismPlace _place = widget.place;
+  late final TourismPlace _place = widget.place;
   bool _saved = false;
   PlaceRatingSummary? _ratingSummary;
   List<PlaceReview> _recentReviews = const [];
@@ -41,7 +41,8 @@ class _RestaurantDetailsScreenState extends State<RestaurantDetailsScreen> {
 
     final description = _place.description.trim();
     final normalized = description.toLowerCase();
-    final isGeneric = description.isEmpty ||
+    final isGeneric =
+        description.isEmpty ||
         normalized == _place.category.toLowerCase() ||
         normalized == 'openstreetmap place in sri lanka' ||
         normalized == 'restaurant' ||
@@ -171,10 +172,11 @@ class _RestaurantDetailsScreenState extends State<RestaurantDetailsScreen> {
         _message(_saved ? 'Added to Saved.' : 'Removed from Saved.');
       }
     } catch (error) {
-      if (mounted)
+      if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Sign in to save places: $error')),
         );
+      }
     }
   }
 
@@ -202,6 +204,7 @@ class _RestaurantDetailsScreenState extends State<RestaurantDetailsScreen> {
   }
 
   bool _isMyReview(PlaceReview review) =>
+      review.ownedByCurrentUser ||
       review.authorName.toLowerCase() == 'you' ||
       review.authorLabel.toLowerCase() == 'your review';
 
@@ -214,12 +217,20 @@ class _RestaurantDetailsScreenState extends State<RestaurantDetailsScreen> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('★' * review.rating, style: const TextStyle(color: Color(0xFFE99030))),
+            Text(
+              '★' * review.rating,
+              style: const TextStyle(color: Color(0xFFE99030)),
+            ),
             const SizedBox(height: 10),
             Text(review.comment),
           ],
         ),
-        actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text('Close'))],
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Close'),
+          ),
+        ],
       ),
     );
   }
@@ -245,8 +256,14 @@ class _RestaurantDetailsScreenState extends State<RestaurantDetailsScreen> {
         title: const Text('Delete your review?'),
         content: const Text('This review will be removed from this place.'),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
-          FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('Delete')),
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Delete'),
+          ),
         ],
       ),
     );
@@ -254,7 +271,11 @@ class _RestaurantDetailsScreenState extends State<RestaurantDetailsScreen> {
     try {
       await TourismService.instance.deleteReview(_place.id, review);
       if (!mounted) return;
-      setState(() => _recentReviews = _recentReviews.where((item) => item.id != review.id).toList());
+      setState(
+        () => _recentReviews = _recentReviews
+            .where((item) => item.id != review.id)
+            .toList(),
+      );
       _loadRatingsAndReviews();
       _message('Your review was deleted.');
     } catch (error) {
@@ -277,7 +298,10 @@ class _RestaurantDetailsScreenState extends State<RestaurantDetailsScreen> {
         child: Wrap(
           children: [
             const ListTile(
-              title: Text('Your review', style: TextStyle(fontWeight: FontWeight.w800)),
+              title: Text(
+                'Your review',
+                style: TextStyle(fontWeight: FontWeight.w800),
+              ),
               subtitle: Text('Choose an action'),
             ),
             ListTile(
@@ -291,8 +315,14 @@ class _RestaurantDetailsScreenState extends State<RestaurantDetailsScreen> {
               onTap: () => Navigator.pop(context, 'edit'),
             ),
             ListTile(
-              leading: const Icon(Icons.delete_outline, color: Color(0xFFB3261E)),
-              title: const Text('Delete', style: TextStyle(color: Color(0xFFB3261E))),
+              leading: const Icon(
+                Icons.delete_outline,
+                color: Color(0xFFB3261E),
+              ),
+              title: const Text(
+                'Delete',
+                style: TextStyle(color: Color(0xFFB3261E)),
+              ),
               onTap: () => Navigator.pop(context, 'delete'),
             ),
           ],
@@ -324,20 +354,32 @@ class _RestaurantDetailsScreenState extends State<RestaurantDetailsScreen> {
           children: [
             const Icon(Icons.star, color: Color(0xFFE99030), size: 19),
             const SizedBox(width: 4),
-            Text(average > 0 ? average.toStringAsFixed(1) : 'Be the first to rate',
-                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800)),
+            Text(
+              average > 0 ? average.toStringAsFixed(1) : 'Be the first to rate',
+              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
+            ),
             const SizedBox(width: 6),
-            Text(count > 0 ? '$count ${count == 1 ? 'review' : 'reviews'}' : 'Share your experience',
-                style: const TextStyle(fontSize: 10, color: Color(0xFF68716D))),
+            Text(
+              count > 0
+                  ? '$count ${count == 1 ? 'review' : 'reviews'}'
+                  : 'Share your experience',
+              style: const TextStyle(fontSize: 10, color: Color(0xFF68716D)),
+            ),
             const Spacer(),
             if (summary != null)
-              Text('★★★★★', style: TextStyle(fontSize: 11, color: Color(0xFFE99030))),
+              Text(
+                '★★★★★',
+                style: TextStyle(fontSize: 11, color: Color(0xFFE99030)),
+              ),
           ],
         ),
         if (_recentReviews.isEmpty)
           const Padding(
             padding: EdgeInsets.only(top: 8),
-            child: Text('No written reviews yet.', style: TextStyle(fontSize: 10, color: Color(0xFF68716D))),
+            child: Text(
+              'No written reviews yet.',
+              style: TextStyle(fontSize: 10, color: Color(0xFF68716D)),
+            ),
           )
         else ...[
           const SizedBox(height: 8),
@@ -348,20 +390,49 @@ class _RestaurantDetailsScreenState extends State<RestaurantDetailsScreen> {
                 width: double.infinity,
                 margin: const EdgeInsets.only(bottom: 7),
                 padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(10), border: Border.all(color: const Color(0xFFE9E2DB))),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: const Color(0xFFE9E2DB)),
+                ),
                 child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(children: [
-                    Expanded(child: Text(review.authorName, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w700))),
-                    Text('${'★' * review.rating}', style: const TextStyle(fontSize: 10, color: Color(0xFFE99030))),
-                  ]),
-                  if (review.comment.isNotEmpty) ...[
-                    const SizedBox(height: 4),
-                    Text(review.comment, maxLines: 3, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 10, height: 1.4, color: Color(0xFF53605A))),
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            review.authorName,
+                            style: const TextStyle(
+                              fontSize: 10,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ),
+                        Text(
+                          '★' * review.rating,
+                          style: const TextStyle(
+                            fontSize: 10,
+                            color: Color(0xFFE99030),
+                          ),
+                        ),
+                      ],
+                    ),
+                    if (review.comment.isNotEmpty) ...[
+                      const SizedBox(height: 4),
+                      Text(
+                        review.comment,
+                        maxLines: 3,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontSize: 10,
+                          height: 1.4,
+                          color: Color(0xFF53605A),
+                        ),
+                      ),
+                    ],
                   ],
-                ],
-              ),
+                ),
               ),
             ),
           ],
@@ -383,10 +454,7 @@ class _RestaurantDetailsScreenState extends State<RestaurantDetailsScreen> {
     });
 
     try {
-      final opened = await launchUrl(
-        uri,
-        mode: LaunchMode.externalApplication,
-      );
+      final opened = await launchUrl(uri, mode: LaunchMode.externalApplication);
       if (!opened && mounted) {
         _message('Could not open maps. Please try again.');
       }
@@ -518,7 +586,10 @@ class _RestaurantDetailsScreenState extends State<RestaurantDetailsScreen> {
                     ] else
                       const Text(
                         ' Be the first to rate',
-                        style: TextStyle(fontSize: 10, color: Color(0xFF68716D)),
+                        style: TextStyle(
+                          fontSize: 10,
+                          color: Color(0xFF68716D),
+                        ),
                       ),
                     const Spacer(),
                     const Icon(
@@ -559,7 +630,7 @@ class _RestaurantDetailsScreenState extends State<RestaurantDetailsScreen> {
                           showCheckmark: false,
                           onSelected: (_) async {
                             setState(() => _tab = label);
-                            if (label == 'Reviews')
+                            if (label == 'Reviews') {
                               await Navigator.push(
                                 context,
                                 MaterialPageRoute(
@@ -569,6 +640,7 @@ class _RestaurantDetailsScreenState extends State<RestaurantDetailsScreen> {
                                   ),
                                 ),
                               );
+                            }
                           },
                           backgroundColor: Colors.white,
                           selectedColor: const Color(0xFF824A2B),
@@ -587,10 +659,7 @@ class _RestaurantDetailsScreenState extends State<RestaurantDetailsScreen> {
                   }).toList(),
                 ),
                 const SizedBox(height: 11),
-                if (_tab == 'Photos')
-                  _photosGallery()
-                else
-                  _overviewPanel(),
+                if (_tab == 'Photos') _photosGallery() else _overviewPanel(),
                 const SizedBox(height: 12),
                 const Divider(color: Color(0xFFE9E2DB)),
                 Row(
@@ -698,7 +767,10 @@ class _RestaurantDetailsScreenState extends State<RestaurantDetailsScreen> {
                   ],
                 ),
                 const SizedBox(height: 8),
-                const Text('Ratings & Reviews', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w800)),
+                const Text(
+                  'Ratings & Reviews',
+                  style: TextStyle(fontSize: 13, fontWeight: FontWeight.w800),
+                ),
                 const SizedBox(height: 7),
                 _ratingsAndReviewsPreview(),
               ],
@@ -718,10 +790,8 @@ class _RestaurantDetailsScreenState extends State<RestaurantDetailsScreen> {
     await Navigator.push<bool>(
       context,
       MaterialPageRoute(
-        builder: (_) => AddReviewScreen(
-          placeId: _place.id,
-          placeName: _displayName,
-        ),
+        builder: (_) =>
+            AddReviewScreen(placeId: _place.id, placeName: _displayName),
       ),
     );
     if (mounted) _loadRatingsAndReviews();
@@ -749,31 +819,6 @@ class _HeroButton extends StatelessWidget {
         height: 34,
         child: Icon(icon, size: 17, color: color),
       ),
-    ),
-  );
-}
-
-class _ReviewAction extends StatelessWidget {
-  const _ReviewAction({
-    required this.label,
-    required this.icon,
-    required this.onPressed,
-  });
-
-  final String label;
-  final IconData icon;
-  final VoidCallback onPressed;
-
-  @override
-  Widget build(BuildContext context) => TextButton.icon(
-    onPressed: onPressed,
-    icon: Icon(icon, size: 13),
-    label: Text(label, style: const TextStyle(fontSize: 9)),
-    style: TextButton.styleFrom(
-      foregroundColor: const Color(0xFF824A2B),
-      visualDensity: VisualDensity.compact,
-      padding: const EdgeInsets.symmetric(horizontal: 5),
-      minimumSize: const Size(0, 28),
     ),
   );
 }

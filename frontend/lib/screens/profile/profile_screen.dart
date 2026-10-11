@@ -154,9 +154,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
     if (password == null || password.isEmpty) return;
 
     try {
-      final message = await UserService.instance.deleteAccount(password);
+      await UserService.instance.deleteAccount(password);
       if (!mounted) return;
-      showHeritageMessage(context, message);
       Navigator.of(context).pushAndRemoveUntil(
         MaterialPageRoute(builder: (_) => const LoginScreen()),
         (_) => false,

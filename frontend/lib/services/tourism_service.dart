@@ -34,8 +34,8 @@ class TourismService {
     final query =
         '''[out:json][timeout:25];
 (
-  nwr["name"~"${escaped}",i]($bounds);
-  nwr["name:en"~"${escaped}",i]($bounds);
+  nwr["name"~"$escaped",i]($bounds);
+  nwr["name:en"~"$escaped",i]($bounds);
 );
 out center tags;''';
     final response = await http
@@ -267,8 +267,9 @@ out center tags;''';
       return 'RESTAURANTS';
     }
     final tourism = tags['tourism']?.toString();
-    if (const {'hotel', 'guest_house', 'hostel'}.contains(tourism))
+    if (const {'hotel', 'guest_house', 'hostel'}.contains(tourism)) {
       return 'HOTELS';
+    }
     if (tourism == 'museum') return 'MUSEUM';
     if (tags.containsKey('historic') ||
         const {'attraction', 'artwork', 'viewpoint'}.contains(tourism)) {
@@ -364,7 +365,6 @@ out center tags;''';
       final response =
           await _api.get(
                 '/api/tourism/places/$placeId/reviews?sort=${Uri.encodeQueryComponent(sort)}',
-                authenticated: false,
               )
               as List<dynamic>;
       reviews = response
@@ -418,7 +418,11 @@ out center tags;''';
       );
       _rememberReview(placeId, review);
       return review;
-    } catch (_) {
+    } catch (error) {
+      if (error is ApiException &&
+          (error.statusCode == 401 || error.statusCode == 403)) {
+        rethrow;
+      }
       final now = DateTime.now().toUtc();
       final review = PlaceReview(
         id: -now.microsecondsSinceEpoch,
@@ -427,6 +431,7 @@ out center tags;''';
         rating: rating,
         comment: comment,
         createdAt: now.toIso8601String(),
+        ownedByCurrentUser: true,
       );
       _rememberReview(placeId, review);
       return review;
@@ -440,10 +445,15 @@ out center tags;''';
     required String comment,
   }) async {
     if (review.id > 0) {
-      await _api.put('/api/tourism/places/$placeId/reviews/${review.id}', body: {
-        'rating': rating,
-        'comment': comment,
-      });
+      final updated = PlaceReview.fromJson(
+        await _api.put(
+              '/api/tourism/places/$placeId/reviews/${review.id}',
+              body: {'rating': rating, 'comment': comment},
+            )
+            as Map<String, dynamic>,
+      );
+      _rememberReview(placeId, updated);
+      return updated;
     }
     final updated = PlaceReview(
       id: review.id,
@@ -452,6 +462,7 @@ out center tags;''';
       rating: rating,
       comment: comment,
       createdAt: review.createdAt,
+      ownedByCurrentUser: review.ownedByCurrentUser,
     );
     _rememberReview(placeId, updated);
     return updated;
@@ -463,6 +474,7 @@ out center tags;''';
     }
     _localReviews[placeId]?.removeWhere((item) => item.id == review.id);
   }
+
   void _rememberReview(int placeId, PlaceReview review) {
     final reviews = _localReviews.putIfAbsent(placeId, () => []);
     final existingIndex = reviews.indexWhere((item) => item.id == review.id);

@@ -5,9 +5,11 @@ import com.ceylonheritage.backend.service.TourismService;
 import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -48,9 +50,10 @@ public class PlaceController {
 
     @GetMapping("/{placeId}/reviews")
     public ResponseEntity<List<TourismDto.ReviewResponse>> getReviews(
+            Authentication authentication,
             @PathVariable Long placeId,
             @RequestParam(defaultValue = "latest") String sort) {
-        return ResponseEntity.ok(tourismService.getReviews(placeId, sort));
+        return ResponseEntity.ok(tourismService.getReviews(placeId, sort, currentUsername(authentication)));
     }
 
     @GetMapping("/{placeId}/ratings")
@@ -64,5 +67,33 @@ public class PlaceController {
             @PathVariable Long placeId,
             @Valid @RequestBody TourismDto.ReviewRequest request) {
         return ResponseEntity.ok(tourismService.addReview(placeId, authentication.getName(), request));
+    }
+
+    @PutMapping("/{placeId}/reviews/{reviewId}")
+    public ResponseEntity<TourismDto.ReviewResponse> updateReview(
+            Authentication authentication,
+            @PathVariable Long placeId,
+            @PathVariable Long reviewId,
+            @Valid @RequestBody TourismDto.ReviewRequest request) {
+        return ResponseEntity.ok(
+                tourismService.updateReview(placeId, reviewId, authentication.getName(), request)
+        );
+    }
+
+    @DeleteMapping("/{placeId}/reviews/{reviewId}")
+    public ResponseEntity<Void> deleteReview(
+            Authentication authentication,
+            @PathVariable Long placeId,
+            @PathVariable Long reviewId) {
+        tourismService.deleteReview(placeId, reviewId, authentication.getName());
+        return ResponseEntity.noContent().build();
+    }
+
+    private String currentUsername(Authentication authentication) {
+        if (authentication == null || !authentication.isAuthenticated()) {
+            return null;
+        }
+        String name = authentication.getName();
+        return "anonymousUser".equals(name) ? null : name;
     }
 }

@@ -1,4 +1,4 @@
-﻿class PlaceReview {
+class PlaceReview {
   const PlaceReview({
     required this.id,
     required this.authorName,
@@ -6,19 +6,22 @@
     required this.rating,
     required this.comment,
     required this.createdAt,
+    this.ownedByCurrentUser = false,
   });
 
   final int id, rating;
   final String authorName, authorLabel, comment, createdAt;
+  final bool ownedByCurrentUser;
 
   factory PlaceReview.fromJson(Map<String, dynamic> json) => PlaceReview(
-        id: (json['id'] as num?)?.toInt() ?? 0,
-        authorName: json['authorName'] as String? ?? 'Visitor',
-        authorLabel: json['authorLabel'] as String? ?? 'Visitor',
-        rating: (json['rating'] as num?)?.toInt() ?? 0,
-        comment: json['comment'] as String? ?? '',
-        createdAt: json['createdAt'] as String? ?? '',
-      );
+    id: (json['id'] as num?)?.toInt() ?? 0,
+    authorName: json['authorName'] as String? ?? 'Visitor',
+    authorLabel: json['authorLabel'] as String? ?? 'Visitor',
+    rating: (json['rating'] as num?)?.toInt() ?? 0,
+    comment: json['comment'] as String? ?? '',
+    createdAt: json['createdAt'] as String? ?? '',
+    ownedByCurrentUser: json['ownedByCurrentUser'] as bool? ?? false,
+  );
 }
 
 class PlaceRatingSummary {
@@ -47,10 +50,10 @@ class PlaceRatingSummary {
       );
 
   int countFor(int stars) => switch (stars) {
-        5 => fiveStars,
-        4 => fourStars,
-        3 => threeStars,
-        2 => twoStars,
-        _ => oneStar,
-      };
+    5 => fiveStars,
+    4 => fourStars,
+    3 => threeStars,
+    2 => twoStars,
+    _ => oneStar,
+  };
 }

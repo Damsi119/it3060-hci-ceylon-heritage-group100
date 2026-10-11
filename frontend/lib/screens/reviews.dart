@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 
 import '../models/place_review.dart';
 import '../services/tourism_service.dart';
@@ -40,17 +40,19 @@ class _ReviewsScreenState extends State<ReviewsScreen> {
         widget.placeId,
         sort: _filter == 'Highest Rated' ? 'highest-rated' : 'latest',
       );
-      if (mounted)
+      if (mounted) {
         setState(() {
           _reviews = reviews;
           _loading = false;
         });
+      }
     } catch (error) {
-      if (mounted)
+      if (mounted) {
         setState(() {
           _error = error.toString();
           _loading = false;
         });
+      }
     }
   }
 
@@ -68,6 +70,7 @@ class _ReviewsScreenState extends State<ReviewsScreen> {
   }
 
   bool _isMyReview(PlaceReview review) =>
+      review.ownedByCurrentUser ||
       review.authorName.toLowerCase() == 'you' ||
       review.authorLabel.toLowerCase() == 'your review';
 
@@ -108,9 +111,9 @@ class _ReviewsScreenState extends State<ReviewsScreen> {
       await TourismService.instance.deleteReview(widget.placeId, review);
       if (!mounted) return;
       _load();
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Your review was deleted.')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Your review was deleted.')));
     } catch (error) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -228,7 +231,7 @@ class _ReviewsScreenState extends State<ReviewsScreen> {
               : ListView.separated(
                   padding: const EdgeInsets.fromLTRB(17, 0, 17, 20),
                   itemCount: _reviews.length,
-                  separatorBuilder: (_, __) => const SizedBox(height: 9),
+                  separatorBuilder: (_, _) => const SizedBox(height: 9),
                   itemBuilder: (context, index) {
                     final review = _reviews[index];
                     return _ReviewCard(
@@ -310,7 +313,11 @@ class _ReviewCard extends StatelessWidget {
             ),
             Text(
               '★' * review.rating,
-              style: const TextStyle(fontSize: 11, color: Color(0xFFE99030), letterSpacing: 1),
+              style: const TextStyle(
+                fontSize: 11,
+                color: Color(0xFFE99030),
+                letterSpacing: 1,
+              ),
             ),
             if (isMine)
               PopupMenuButton<String>(

@@ -72,12 +72,14 @@ class _AdminUserManagementScreenState extends State<AdminUserManagementScreen> {
         ],
       ),
     );
-    if (ok != true) return;
+    if (ok != true || !mounted) return;
     try {
       await AdminUserService.instance.deleteUser(user.id);
       if (!mounted) return;
+      setState(() {
+        _users = _users.where((item) => item.id != user.id).toList();
+      });
       showHeritageMessage(context, 'User removed');
-      _load();
     } on ApiException catch (e) {
       if (mounted) showHeritageMessage(context, e.message, error: true);
     }
@@ -148,6 +150,7 @@ class _AdminUserManagementScreenState extends State<AdminUserManagementScreen> {
             else
               ..._users.map(
                 (user) => Padding(
+                  key: ValueKey(user.id),
                   padding: const EdgeInsets.only(bottom: 9),
                   child: HeritageCard(
                     child: Row(
@@ -199,9 +202,12 @@ class _AdminUserManagementScreenState extends State<AdminUserManagementScreen> {
                         ),
                         PopupMenuButton<String>(
                           onSelected: (value) {
-                            if (value == 'enable') _status(user, true);
-                            if (value == 'disable') _status(user, false);
-                            if (value == 'delete') _delete(user);
+                            WidgetsBinding.instance.addPostFrameCallback((_) {
+                              if (!mounted) return;
+                              if (value == 'enable') _status(user, true);
+                              if (value == 'disable') _status(user, false);
+                              if (value == 'delete') _delete(user);
+                            });
                           },
                           itemBuilder: (_) => const [
                             PopupMenuItem(

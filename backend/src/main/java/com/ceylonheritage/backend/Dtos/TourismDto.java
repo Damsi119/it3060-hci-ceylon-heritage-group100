@@ -44,7 +44,8 @@ public final class TourismDto {
             String authorLabel,
             int rating,
             String comment,
-            LocalDateTime createdAt
+            LocalDateTime createdAt,
+            boolean ownedByCurrentUser
     ) {}
 
     public record RatingSummaryResponse(
